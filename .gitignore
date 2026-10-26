@@ -1,0 +1,7 @@
+# entorno y binarios pesados (se regeneran / se descargan aparte)
+CAD/.venv/
+__pycache__/
+tools/
+*.AppImage
+# build de arduino-cli, si se crea dentro del proyecto
+build/
