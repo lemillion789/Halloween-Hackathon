@@ -40,15 +40,8 @@ def is_no_costume(person):
         or person.get("confidence", 1) < 0.3
 
 
-def write_line(person, model=DEFAULT_MODEL):
-    """Una frase hablada. Cualquier fallo de la API (sin internet, 429, respuesta vacia) usa plantillas."""
-    nothing = is_no_costume(person)
-    if nothing:
-        task = ("The guest is wearing no costume, or you cannot tell what they are. Tease them lightly and "
-                "sarcastically about not having a good costume.")
-    else:
-        task = (f"The guest is dressed as {person['character']} ({person.get('description', '')}). "
-                f"Greet them in character as the skull, mentioning the costume with a witty or ominous comment.")
+def _generate(task, model):
+    """Pide una frase a Nemotron. Devuelve None si la API falla (sin internet, 429, vacia, muy larga)."""
     try:
         resp = nvidia_client().with_options(timeout=20, max_retries=0).chat.completions.create(
             model=model,
@@ -62,4 +55,41 @@ def write_line(person, model=DEFAULT_MODEL):
             return text
     except Exception as e:
         print(f"[frase] error {type(e).__name__}: {e}")
-    return random.choice(NO_COSTUME_FALLBACK) if nothing else spooky_line(person)
+    return None
+
+
+def write_line(person, model=DEFAULT_MODEL):
+    """Una frase hablada para un invitado; plantillas de respaldo si la API falla."""
+    nothing = is_no_costume(person)
+    if nothing:
+        task = ("The guest is wearing no costume, or you cannot tell what they are. Tease them lightly and "
+                "sarcastically about not having a good costume.")
+    else:
+        task = (f"The guest is dressed as {person['character']} ({person.get('description', '')}). "
+                f"Greet them in character as the skull, mentioning the costume with a witty or ominous comment.")
+    return _generate(task, model) or (random.choice(NO_COSTUME_FALLBACK) if nothing else spooky_line(person))
+
+
+ROULETTE_INTROS = [
+    "The wheel of doom has been summoned... someone in this room is about to suffer.",
+    "Let the bones decide... who will it be...",
+    "Round and round the wheel goes... and where it stops, nobody knows.",
+]
+
+ROULETTE_FALLBACK = [
+    "The wheel has spoken! {c}, it is you! {dare}, and do not make me ask twice.",
+    "Congratulations, {c}! The bones have chosen you. Now {dare}. Do it for the skull.",
+]
+
+
+def roulette_intro():
+    return random.choice(ROULETTE_INTROS)
+
+
+def write_roulette_line(person, dare, model=DEFAULT_MODEL):
+    """Anuncio del elegido de la ruleta: gracioso, con su disfraz y el reto (dare)."""
+    who = "a guest" if is_no_costume(person) else f"the guest dressed as {person['character']}"
+    task = (f"A roulette just picked {who} out of several guests. Announce with theatrical drama that "
+            f"they are the chosen one and command them to {dare}. Make it funny; mention the costume if there is one.")
+    return _generate(task, model) or random.choice(ROULETTE_FALLBACK).format(
+        c=person.get("character", "stranger") if not is_no_costume(person) else "stranger", dare=dare)

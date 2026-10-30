@@ -92,3 +92,7 @@ Un token viejo en `~/.cache/huggingface/token` daba 401 al bajar Kokoro; `tts.py
 ## Frases (`skull_lines.py`)
 
 Con `--speak`: al detectar a alguien nuevo la calavera dice un relleno al instante ("Hmm... what do we have here..."; solo si esta callada y no hubo otro hace 12 s); cuando el VLM termina, Nemotron escribe una frase segun el disfraz (segunda llamada, solo texto, `reasoning_budget` 128, timeout 20 s). Si no se identifica el disfraz ("no costume", lista vacia tras el reintento o confianza < 0.3) dice una frase sarcastica sobre no tener disfraz. Si la API falla usa plantillas. El prompt prohibe armas, violencia e insultos personales (reglas del concurso). Cada frase queda en `person_costume.log.jsonl`.
+
+## Ruleta (`roulette.py`)
+
+Con la camara y `--speak`, tecla **S**: la ruleta recorre a las personas ya descritas que estan en pantalla (minimo 2), frena poco a poco en una (caja amarilla girando, roja al elegir) y la calavera anuncia con una frase de Nemotron que debe cumplir un reto. Por defecto `--dare "take a shot"` (solo para la fiesta); para el video del concurso usar otro reto, p. ej. `--dare "do your best villain laugh"`. Si la API falla usa frases de respaldo.

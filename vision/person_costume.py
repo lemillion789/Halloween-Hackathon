@@ -4,8 +4,9 @@ Flujo: camara -> YOLO + ByteTrack -> recorte por persona -> VLM (costume_describ
 sobre la caja. El VLM se llama una vez por ID de persona, en hilos, asi el video no se frena.
 
 Uso:
-  .venv/bin/python person_costume.py --camera 0            # C922 o webcam; R = volver a describir todos, Q = salir
+  .venv/bin/python person_costume.py --camera 0            # C922 o webcam; R = volver a describir todos, S = ruleta, Q = salir
   .venv/bin/python person_costume.py --source foto.jpg     # imagen suelta
+  --roulette  (con --source) ruleta sobre la foto
   --speak  la calavera dice una frase de terror por cada persona nueva (voz: tts.py)
   --model <nombre>   para cambiar de modelo (por defecto Nemotron, ver costume_describer.DEFAULT_MODEL)
 """
@@ -18,6 +19,7 @@ import cv2
 from ultralytics import YOLO
 
 from costume_describer import DEFAULT_MODEL, describe
+from roulette import Roulette
 from skull_lines import filler, write_line
 from tts import Speaker
 
@@ -113,12 +115,13 @@ def draw(frame, ids, boxes, tracker):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
 
-def run_camera(index, model, yolo_name, speaker=None):
+def run_camera(index, model, yolo_name, speaker=None, dare="take a shot"):
     yolo = YOLO(yolo_name)
     cap = cv2.VideoCapture(index)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     tracker = CostumeTracker(model, speaker)
+    roulette = None
     while True:
         ok, frame = cap.read()
         if not ok:
@@ -132,17 +135,27 @@ def run_camera(index, model, yolo_name, speaker=None):
         tracker.update(frame, ids, boxes)
         view = frame.copy()
         draw(view, ids, boxes, tracker)
+        if roulette:
+            roulette.draw(view, ids, boxes)
+            if not roulette.update(time.time()):
+                roulette = None
         cv2.imshow("person_costume", view)
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
             break
         if key == ord("r"):
             tracker.reset()
+        if key == ord("s") and roulette is None:
+            people = [(tid, tracker.info[tid]) for tid in ids if tid in tracker.info]
+            if len(people) < 2:
+                print(f"[ruleta] hacen falta al menos 2 personas ya descritas (hay {len(people)})")
+            else:
+                roulette = Roulette(people, speaker, model, dare)
     cap.release()
     cv2.destroyAllWindows()
 
 
-def run_image(path, model, yolo_name, speaker=None):
+def run_image(path, model, yolo_name, speaker=None, dare=None):
     """Una foto: detecta, describe cada persona en paralelo y guarda <foto>_out.jpg."""
     frame = cv2.imread(path)
     res = YOLO(yolo_name)(frame, classes=[0], verbose=False)[0]
@@ -150,6 +163,7 @@ def run_image(path, model, yolo_name, speaker=None):
     tracker = CostumeTracker(model, speaker)
     futures = {i + 1: tracker.pool.submit(tracker._job, i + 1, crop_person(frame, b)) for i, b in enumerate(boxes)}
     tracker.say_filler(time.time())
+    speeches = {}
     for tid, fut in futures.items():
         try:
             person, dt, speech = fut.result()
@@ -157,14 +171,46 @@ def run_image(path, model, yolo_name, speaker=None):
             print(f"#{tid}: error {type(e).__name__}: {e}")
             continue
         tracker.info[tid] = {**person, "seconds": dt}
-        if speaker and speech:
-            speaker.say(speech)
+        speeches[tid] = speech
     draw(frame, list(futures), boxes, tracker)
     out = path.rsplit(".", 1)[0] + "_out.jpg"
     cv2.imwrite(out, frame)
     print(f"{len(boxes)} personas -> {out}")
+    if speaker:  # cuando ya estan todas, de izquierda a derecha segun la posicion en la foto
+        for tid in sorted(speeches, key=lambda t: boxes[t - 1][0]):
+            if speeches[tid]:
+                speaker.say(speeches[tid])
+        speaker.wait()  # la ruleta empieza cuando acaba la ultima voz
+    if dare:
+        spin_on_image(frame, futures, boxes, tracker, model, speaker, dare)
     if speaker:
         speaker.wait()
+
+
+def spin_on_image(frame, futures, boxes, tracker, model, speaker, dare):
+    """Ruleta sobre la foto: gira en una ventana y se queda con el elegido hasta pulsar una tecla."""
+    people = [(tid, tracker.info[tid]) for tid in futures if tid in tracker.info]
+    if len(people) < 2:
+        print(f"[ruleta] hacen falta al menos 2 personas descritas (hay {len(people)})")
+        return
+    ids = list(futures)
+    roulette = Roulette(people, speaker, model, dare)
+    scale = min(1.0, 1400 / frame.shape[1])
+    while True:
+        view = frame.copy()
+        running = roulette.update(time.time())
+        roulette.draw(view, ids, boxes)
+        cv2.imshow("ruleta", cv2.resize(view, None, fx=scale, fy=scale))
+        cv2.waitKey(30)
+        if not running:
+            break
+    cv2.imwrite(path_out(roulette), view)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+def path_out(roulette):
+    return f"ruleta_elegido_{roulette.winner}.jpg"
 
 
 def main():
@@ -173,13 +219,15 @@ def main():
     ap.add_argument("--source", help="imagen suelta")
     ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--yolo", default="yolo11n.pt")
+    ap.add_argument("--dare", default="take a shot", help="reto de la ruleta (tecla S), en ingles")
+    ap.add_argument("--roulette", action="store_true", help="con --source: gira la ruleta sobre la foto")
     ap.add_argument("--speak", action="store_true", help="la calavera dice una frase por persona nueva")
     args = ap.parse_args()
     speaker = Speaker() if args.speak else None
     if args.source:
-        run_image(args.source, args.model, args.yolo, speaker)
+        run_image(args.source, args.model, args.yolo, speaker, args.dare if args.roulette else None)
     else:
-        run_camera(args.camera if args.camera is not None else 0, args.model, args.yolo, speaker)
+        run_camera(args.camera if args.camera is not None else 0, args.model, args.yolo, speaker, args.dare)
 
 
 if __name__ == "__main__":

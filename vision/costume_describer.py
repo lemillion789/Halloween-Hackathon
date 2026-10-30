@@ -119,7 +119,7 @@ def nvidia_client():
     from openai import OpenAI
 
     if _nvidia is None:
-        _nvidia = OpenAI(base_url=NVIDIA_URL, api_key=os.environ["NVIDIA_API_KEY"], timeout=60, max_retries=1)
+        _nvidia = OpenAI(base_url=NVIDIA_URL, api_key=os.environ["NVIDIA_API_KEY"], timeout=30, max_retries=1)
     return _nvidia
 
 
