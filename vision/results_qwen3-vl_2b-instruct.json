@@ -1,0 +1,367 @@
+[
+  {
+    "image": "darth_vader_1.jpg",
+    "expected": "darth_vader",
+    "hit": true,
+    "seconds": 1.48,
+    "people": [
+      {
+        "character": "Darth Vader",
+        "category": "movie/tv",
+        "description": "A large hot air balloon shaped like Darth Vader's helmet, with a black fabric covering the face and a small basket hanging below.",
+        "confidence": 0.99
+      }
+    ]
+  },
+  {
+    "image": "darth_vader_2.jpg",
+    "expected": "darth_vader",
+    "hit": true,
+    "seconds": 18.14,
+    "people": [
+      {
+        "character": "Darth Vader",
+        "category": "villain",
+        "description": "A person in a full Darth Vader costume, including a black helmet, cape, and armor, standing in front of a restaurant with a 'CHOPPT' sign.",
+        "confidence": 0.99
+      }
+    ]
+  },
+  {
+    "image": "joker_2.jpg",
+    "expected": "joker",
+    "hit": true,
+    "seconds": 17.87,
+    "people": [
+      {
+        "character": "Joker",
+        "category": "villain",
+        "description": "A person dressed as the Joker in a gray checkered suit, white gloves, and holding a revolver, with distinctive green hair and makeup.",
+        "confidence": 0.99
+      }
+    ]
+  },
+  {
+    "image": "pikachu_1.jpg",
+    "expected": "pikachu",
+    "hit": true,
+    "seconds": 17.82,
+    "people": [
+      {
+        "character": "Pikachu",
+        "category": "anime/game",
+        "description": "A large, inflatable Pikachu mascot dressed in a pink and white outfit with a bow on its head.",
+        "confidence": 0.99
+      }
+    ]
+  },
+  {
+    "image": "pikachu_2.jpg",
+    "expected": "pikachu",
+    "hit": true,
+    "seconds": 18.18,
+    "people": [
+      {
+        "character": "Pikachu",
+        "category": "animal",
+        "description": "A large, inflatable Pikachu mascot dressed in a pink and white outfit with a bow and a ruffled skirt, standing in front of a blue backdrop with 'GAMCON' logos.",
+        "confidence": 0.99
+      }
+    ]
+  },
+  {
+    "image": "pirate_1.jpg",
+    "expected": "pirate",
+    "hit": true,
+    "seconds": 17.34,
+    "people": [
+      {
+        "character": "pirate",
+        "category": "fantasy",
+        "description": "A woman in a pirate costume with a black tricorn hat, a blue and gray dress, and a blue sash.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "image": "pirate_2.jpg",
+    "expected": "pirate",
+    "hit": true,
+    "seconds": 20.94,
+    "people": [
+      {
+        "character": "pirate",
+        "category": "animal",
+        "description": "A man wearing a black hat and an eyepatch, with a green parrot on his shoulder and another parrot on his arm.",
+        "confidence": 0.99
+      },
+      {
+        "character": "zombie",
+        "category": "undead",
+        "description": "A person in a red jacket and brown pants, holding a camera, standing on a grassy area.",
+        "confidence": 0.99
+      },
+      {
+        "character": "none",
+        "category": "other",
+        "description": "A man in a black jacket and white pants standing in the background.",
+        "confidence": 0.99
+      },
+      {
+        "character": "none",
+        "category": "other",
+        "description": "A man in a black jacket and white pants standing in the background.",
+        "confidence": 0.99
+      }
+    ]
+  },
+  {
+    "image": "skeleton_1.jpg",
+    "expected": "skeleton",
+    "hit": true,
+    "seconds": 20.06,
+    "people": [
+      {
+        "character": "undead",
+        "category": "undead",
+        "description": "A person in a black and white skeleton costume with a green feather boa.",
+        "confidence": 0.85
+      },
+      {
+        "character": "undead",
+        "category": "undead",
+        "description": "A person in a black and white skeleton costume with a red hat and a red scarf.",
+        "confidence": 0.85
+      },
+      {
+        "character": "undead",
+        "category": "undead",
+        "description": "A person in a black and white skeleton costume with a red hat and a red scarf.",
+        "confidence": 0.85
+      },
+      {
+        "character": "none",
+        "category": "other",
+        "description": "A person in a black and white skeleton costume with a red hat and a red scarf.",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "image": "skeleton_2.jpg",
+    "expected": "skeleton",
+    "hit": false,
+    "seconds": 16.7,
+    "people": []
+  },
+  {
+    "image": "spider-man_1.jpg",
+    "expected": "spider-man",
+    "hit": true,
+    "seconds": 22.2,
+    "people": [
+      {
+        "character": "Spider-Man",
+        "category": "superhero",
+        "description": "A person in a blue and red Spider-Man suit with a web pattern, standing in a pose that suggests a dynamic action stance.",
+        "confidence": 0.85
+      },
+      {
+        "character": "Spider-Man",
+        "category": "superhero",
+        "description": "A person in a black and white Spider-Man costume with a spiderweb design on the chest and a mask with glowing eyes.",
+        "confidence": 0.85
+      },
+      {
+        "character": "Spider-Man",
+        "category": "superhero",
+        "description": "A person in a black and red Spider-Man suit with a web pattern and a mask with glowing eyes, standing in a pose that suggests a dynamic action stance.",
+        "confidence": 0.85
+      },
+      {
+        "character": "Spider-Man",
+        "category": "superhero",
+        "description": "A person in a black and red Spider-Man suit with a web pattern and a mask with glowing eyes, standing in a pose that suggests a dynamic action stance.",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "image": "spider-man_2.jpg",
+    "expected": "spider-man",
+    "hit": true,
+    "seconds": 20.83,
+    "people": [
+      {
+        "character": "Spider-Man",
+        "category": "superhero",
+        "description": "A person in a red and blue Spider-Man costume with arms raised, making a rock-on gesture.",
+        "confidence": 0.95
+      },
+      {
+        "character": "none",
+        "category": "movie/tv",
+        "description": "A woman with red hair wearing a black tank top and beige pants, posing with a white bag.",
+        "confidence": 0.95
+      },
+      {
+        "character": "none",
+        "category": "movie/tv",
+        "description": "A woman with blonde hair wearing a green jacket, purple skirt, and black boots, standing in a hallway.",
+        "confidence": 0.95
+      },
+      {
+        "character": "none",
+        "category": "movie/tv",
+        "description": "A person in a blue jacket and black pants walking in the background.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "image": "stormtrooper_1.jpg",
+    "expected": "stormtrooper",
+    "hit": true,
+    "seconds": 20.55,
+    "people": [
+      {
+        "character": "zombie",
+        "category": "undead",
+        "description": "A person in a white and black stormtrooper costume holding a blaster, standing in a convention hall.",
+        "confidence": 0.99
+      },
+      {
+        "character": "zombie",
+        "category": "undead",
+        "description": "A person in a white and black stormtrooper costume holding a blaster, standing in a convention hall.",
+        "confidence": 0.99
+      },
+      {
+        "character": "zombie",
+        "category": "undead",
+        "description": "A person in a white and black stormtrooper costume holding a blaster, standing in a convention hall.",
+        "confidence": 0.99
+      },
+      {
+        "character": "zombie",
+        "category": "undead",
+        "description": "A person in a white and black stormtrooper costume holding a blaster, standing in a convention hall.",
+        "confidence": 0.99
+      }
+    ]
+  },
+  {
+    "image": "stormtrooper_2.jpg",
+    "expected": "stormtrooper",
+    "hit": true,
+    "seconds": 20.88,
+    "people": [
+      {
+        "character": "zombie",
+        "category": "undead",
+        "description": "A person in a white and black stormtrooper costume with a rifle, wearing a black backpack and a black glove.",
+        "confidence": 0.99
+      },
+      {
+        "character": "zombie",
+        "category": "undead",
+        "description": "A person in a white and black stormtrooper costume with a rifle, wearing a black backpack and a black glove.",
+        "confidence": 0.99
+      },
+      {
+        "character": "zombie",
+        "category": "undead",
+        "description": "A person in a white and black stormtrooper costume with a rifle, wearing a black backpack and a black glove.",
+        "confidence": 0.99
+      },
+      {
+        "character": "zombie",
+        "category": "undead",
+        "description": "A person in a white and black stormtrooper costume with a rifle, wearing a black backpack and a black glove.",
+        "confidence": 0.99
+      }
+    ]
+  },
+  {
+    "image": "vampire_1.jpg",
+    "expected": "vampire",
+    "hit": true,
+    "seconds": 17.33,
+    "people": [
+      {
+        "character": "vampire",
+        "category": "monster",
+        "description": "A young boy is dressed as a vampire with white face paint, dark hair, and a black cape.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "image": "witch_2.jpg",
+    "expected": "witch",
+    "hit": true,
+    "seconds": 19.35,
+    "people": [
+      {
+        "character": "witch",
+        "category": "fantasy",
+        "description": "A woman in a green and black costume with a large, curly brown wig, making a playful kissy face.",
+        "confidence": 0.85
+      },
+      {
+        "character": "witch",
+        "category": "fantasy",
+        "description": "A woman in a purple and black costume with a long blonde wig, holding a small birdcage.",
+        "confidence": 0.85
+      },
+      {
+        "character": "witch",
+        "category": "fantasy",
+        "description": "A woman in a red and black costume with a tall, pointed hat, making a peace sign.",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "image": "wonder_woman_1.jpg",
+    "expected": "wonder_woman",
+    "hit": true,
+    "seconds": 18.03,
+    "people": [
+      {
+        "character": "Wonder Woman",
+        "category": "superhero",
+        "description": "A woman in a red and gold costume with a blue star-patterned skirt, a gold headband, and red sneakers, standing with her arms crossed.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "image": "wonder_woman_2.jpg",
+    "expected": "wonder_woman",
+    "hit": true,
+    "seconds": 18.05,
+    "people": [
+      {
+        "character": "Wonder Woman",
+        "category": "superhero",
+        "description": "A woman in a classic Wonder Woman costume with a gold top, red and blue star-patterned briefs, and red boots, holding a golden lasso.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "image": "zombie_1.jpg",
+    "expected": "zombie",
+    "hit": true,
+    "seconds": 18.14,
+    "people": [
+      {
+        "character": "zombie",
+        "category": "undead",
+        "description": "A person with a long, graying beard, wearing a denim jacket and a colorful tie-dye shirt, has a painted face with blood and red splatters, and is wearing sunglasses.",
+        "confidence": 0.99
+      }
+    ]
+  }
+]

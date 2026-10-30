@@ -1,5 +1,6 @@
 # entorno y binarios pesados (se regeneran / se descargan aparte)
 CAD/.venv/
+vision/.venv/
 __pycache__/
 tools/
 *.AppImage

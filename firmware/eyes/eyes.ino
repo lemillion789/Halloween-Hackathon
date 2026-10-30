@@ -4,9 +4,14 @@
 //   M <mood>    neutral angry happy surprised sleepy sad suspicious evil dead possessed dizzy scared
 //   B           parpadear
 //   D           activa/desactiva modo demo (recorre todas las expresiones)
+//   I           una lectura del IMU | I 1 / I 0 stream on/off (20 Hz) | I C recalibrar giroscopio
+//               formato: IMU <pitch> <roll> <ax> <ay> <az> <gx> <gy> <gz>  (grados, g, grados/s)
+//   G <0..255>  brillo de los LEDs rojos interiores (al arrancar: 255) | G P latido suave
+//   G H [bpm]   latido de corazon "pum-pum ... pum-pum" (por defecto 70 bpm)
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7735.h>
 #include <SPI.h>
+#include <Wire.h>
 #include <math.h>
 
 // Pines (ver README.md). SCK=18, MOSI=23 son los de VSPI por defecto.
@@ -14,6 +19,15 @@
 #define PIN_RST  4
 #define PIN_CS_L 5
 #define PIN_CS_R 17
+// IMU (MPU6050/6500/9250) por I2C en los pines por defecto del ESP32, libres respecto a las TFT.
+#define PIN_SDA  21
+#define PIN_SCL  22
+// Cadena de 3 LEDs rojos dentro de la calavera: 3V3, 100 ohm por LED, transistor KSP2222A (base por 1 k).
+// PWM, pin alto = encendido. 25 queda libre para el backlight de las TFT.
+#define PIN_LEDS 32
+#define LED_DEFAULT 255  // brillo al arrancar, 0..255
+#define SHAKE_DIZZY 1      // 1 = sacudir la cabeza pone los ojos mareados
+#define SHAKE_DPS   400.0  // umbral de giro (grados/s) para considerar sacudida
 
 // Pantallas en vertical. 0 = pines arriba; 2 = pines abajo (girado 180).
 #define ROTATION 2
@@ -173,6 +187,168 @@ void render() {
   tftR.drawRGBBitmap(0, 0, canvas.getBuffer(), W, H);
 }
 
+// ---- IMU: registros comunes de la familia MPU6050/6500/9250, sin librerias ----
+uint8_t imuAddr = 0;             // 0 = no encontrado
+float ax, ay, az, gx, gy, gz;    // g y grados/s
+float gbx = 0, gby = 0, gbz = 0; // bias del giroscopio
+float pitch = 0, roll = 0;       // filtro complementario, grados
+bool imuStream = false;
+uint32_t lastImu = 0, nextImuOut = 0, dizzyEnd = 0;
+Mood moodBeforeDizzy = NEUTRAL;
+
+void imuWrite(uint8_t reg, uint8_t val) {
+  Wire.beginTransmission(imuAddr);
+  Wire.write(reg);
+  Wire.write(val);
+  Wire.endTransmission();
+}
+
+bool imuReadRaw() {
+  Wire.beginTransmission(imuAddr);
+  Wire.write(0x3B);  // ACCEL_XOUT_H; 14 bytes: accel, temp, gyro
+  if (Wire.endTransmission(false) != 0) return false;
+  if (Wire.requestFrom(imuAddr, (uint8_t)14) != 14) return false;
+  int16_t v[7];
+  for (int i = 0; i < 7; i++) {
+    uint8_t hi = Wire.read();  // dos sentencias: el orden de evaluacion de a|b no esta garantizado
+    v[i] = (int16_t)((hi << 8) | Wire.read());
+  }
+  ax = v[0] / 8192.0;  // +-4 g
+  ay = v[1] / 8192.0;
+  az = v[2] / 8192.0;
+  gx = v[4] / 65.5 - gbx;  // +-500 grados/s
+  gy = v[5] / 65.5 - gby;
+  gz = v[6] / 65.5 - gbz;
+  return true;
+}
+
+void imuCalibrate() {  // la cabeza debe estar quieta ~0.5 s
+  gbx = gby = gbz = 0;
+  float sx = 0, sy = 0, sz = 0;
+  int n = 0;
+  for (int i = 0; i < 200; i++) {
+    if (imuReadRaw()) {
+      sx += gx;
+      sy += gy;
+      sz += gz;
+      n++;
+    }
+    delay(2);
+  }
+  if (n) {
+    gbx = sx / n;
+    gby = sy / n;
+    gbz = sz / n;
+  }
+  imuReadRaw();
+  pitch = atan2f(-ax, sqrtf(ay * ay + az * az)) * RAD_TO_DEG;
+  roll = atan2f(ay, az) * RAD_TO_DEG;
+  lastImu = micros();
+}
+
+void imuBegin() {
+  Wire.begin(PIN_SDA, PIN_SCL, 400000);
+  for (uint8_t a = 0x68; a <= 0x69 && !imuAddr; a++) {
+    Wire.beginTransmission(a);
+    if (Wire.endTransmission() == 0) imuAddr = a;
+  }
+  if (!imuAddr) {
+    Serial.println("IMU no encontrado (revisar SDA=21 SCL=22, 3V3, GND)");
+    return;
+  }
+  Wire.beginTransmission(imuAddr);
+  Wire.write(0x75);  // WHO_AM_I: 0x68 MPU6050, 0x70 MPU6500, 0x71/0x73 MPU9250/9255
+  Wire.endTransmission(false);
+  Wire.requestFrom(imuAddr, (uint8_t)1);
+  uint8_t who = Wire.read();
+  imuWrite(0x6B, 0x80);  // reset
+  delay(100);
+  imuWrite(0x6B, 0x01);  // despertar, reloj del PLL del giro
+  imuWrite(0x1A, 0x03);  // filtro paso bajo ~44 Hz
+  imuWrite(0x1B, 0x08);  // giro +-500 grados/s
+  imuWrite(0x1C, 0x08);  // accel +-4 g
+  delay(50);
+  Serial.printf("IMU en 0x%02X, WHO_AM_I=0x%02X\n", imuAddr, who);
+  imuCalibrate();
+}
+
+void imuPrint() {
+  Serial.printf("IMU %.1f %.1f %.3f %.3f %.3f %.1f %.1f %.1f\n", pitch, roll, ax, ay, az, gx, gy, gz);
+}
+
+void imuUpdate() {
+  if (!imuAddr || !imuReadRaw()) return;
+  uint32_t t = micros();
+  float dt = (t - lastImu) / 1e6;
+  lastImu = t;
+  if (dt > 0.2) dt = 0.2;  // tras una pausa larga no integrar de mas
+  float accPitch = atan2f(-ax, sqrtf(ay * ay + az * az)) * RAD_TO_DEG;
+  float accRoll = atan2f(ay, az) * RAD_TO_DEG;
+  pitch = 0.96 * (pitch + gy * dt) + 0.04 * accPitch;
+  roll = 0.96 * (roll + gx * dt) + 0.04 * accRoll;
+
+  uint32_t now = millis();
+#if SHAKE_DIZZY
+  if (sqrtf(gx * gx + gy * gy + gz * gz) > SHAKE_DPS) {
+    if (now > dizzyEnd) moodBeforeDizzy = mood;
+    mood = DIZZY;
+    dizzyEnd = now + 3000;
+  } else if (dizzyEnd && now > dizzyEnd) {
+    mood = moodBeforeDizzy;
+    dizzyEnd = 0;
+  }
+#endif
+  if (imuStream && now > nextImuOut) {
+    imuPrint();
+    nextImuOut = now + 50;
+  }
+}
+
+// ---- LEDs rojos interiores: PWM por LEDC, 5 kHz, 8 bits ----
+// Los efectos corren en su propia tarea cada 10 ms: el loop tarda ~50 ms por cuadro y el latido se veria a saltos.
+enum LedMode { LED_FIXED, LED_PULSE, LED_HEART };
+volatile LedMode ledMode = LED_FIXED;
+volatile int ledBpm = 70;
+volatile uint32_t heartStart = 0;
+
+void ledBegin() {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  ledcAttach(PIN_LEDS, 5000, 8);
+#else
+  ledcSetup(0, 5000, 8);
+  ledcAttachPin(PIN_LEDS, 0);
+#endif
+}
+
+void ledLevel(int v) {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  ledcWrite(PIN_LEDS, constrain(v, 0, 255));
+#else
+  ledcWrite(0, constrain(v, 0, 255));
+#endif
+}
+
+// destello: sube en 30 ms y se apaga exponencialmente
+float flash(int32_t dt, float amp) {
+  if (dt < 0) return 0;
+  if (dt < 30) return amp * dt / 30.0;
+  return amp * expf(-(dt - 30) / 70.0);
+}
+
+void ledTask(void *) {
+  while (true) {
+    uint32_t now = millis();
+    if (ledMode == LED_PULSE) {
+      ledLevel(10 + (int)((sinf(now / 600.0) + 1) / 2 * 245));  // latido lento
+    } else if (ledMode == LED_HEART) {  // "pum" fuerte, "pum" suave 200 ms despues, silencio
+      int32_t t = (now - heartStart) % (60000 / ledBpm);
+      float a = flash(t, 1.0) + flash(t - 200, 0.7);
+      ledLevel(6 + (int)(249 * (a > 1 ? 1 : a)));
+    }
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+}
+
 void setMood(const String &m) {
   mood = NEUTRAL;
   for (int i = 0; i < MOOD_COUNT; i++)
@@ -190,7 +366,24 @@ void handleSerial() {
     nextSaccade = millis() + 4000;  // pausa el movimiento aleatorio
   } else if (line.startsWith("M ")) {
     demo = false;
+    dizzyEnd = 0;  // una orden explicita gana al mareo por sacudida
     setMood(line.substring(2));
+  } else if (line == "G P") {
+    ledMode = LED_PULSE;
+  } else if (line.startsWith("G H")) {
+    if (line.length() > 4) ledBpm = constrain(line.substring(4).toInt(), 30, 180);
+    heartStart = millis();
+    ledMode = LED_HEART;
+  } else if (line.startsWith("G ")) {
+    ledMode = LED_FIXED;
+    ledLevel(line.substring(2).toInt());
+  } else if (line == "I") {
+    imuPrint();
+  } else if (line == "I 1" || line == "I 0") {
+    imuStream = (line == "I 1");
+  } else if (line == "I C") {
+    imuCalibrate();
+    Serial.println("IMU calibrado");
   } else if (line == "B") {
     blinkEnd = millis() + 150;
   } else if (line == "D") {
@@ -201,6 +394,9 @@ void handleSerial() {
 
 void setup() {
   Serial.begin(115200);
+  ledBegin();
+  ledLevel(LED_DEFAULT);
+  xTaskCreatePinnedToCore(ledTask, "leds", 2048, nullptr, 1, nullptr, 0);
   pinMode(PIN_RST, OUTPUT);
   digitalWrite(PIN_RST, LOW);
   delay(20);
@@ -219,11 +415,13 @@ void setup() {
     while (true) delay(1000);
   }
   buildSclera(sclera, 7);
+  imuBegin();
 }
 
 void loop() {
   uint32_t now = millis();
   handleSerial();
+  imuUpdate();
 
   if (demo && now > nextDemo) {
     mood = (Mood)((mood + 1) % MOOD_COUNT);
