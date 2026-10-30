@@ -40,21 +40,34 @@ def is_no_costume(person):
         or person.get("confidence", 1) < 0.3
 
 
-def _generate(task, model):
-    """Pide una frase a Nemotron. Devuelve None si la API falla (sin internet, 429, vacia, muy larga)."""
-    try:
-        resp = nvidia_client().with_options(timeout=20, max_retries=0).chat.completions.create(
-            model=model,
-            messages=[{"role": "system", "content": PERSONA}, {"role": "user", "content": task}],
-            temperature=0.9,
-            max_tokens=400,
-            **({"extra_body": {"reasoning_budget": 128}} if "nemotron" in model else {}),
-        )
-        text = re.sub(r'^["\'\s]+|["\'\s]+$', "", (resp.choices[0].message.content or "").strip())
-        if 3 <= len(text.split()) <= 45:
-            return text
-    except Exception as e:
-        print(f"[frase] error {type(e).__name__}: {e}")
+def tidy(text):
+    """Deja una sola frase limpia. Nemotron a veces repite la respuesta (separada por saltos de linea o pegada)."""
+    text = text.replace("\u2019", "'").replace("\u2018", "'").replace("\u201c", '"').replace("\u201d", '"')
+    parts = [p.strip() for p in re.split(r"\n+", text) if p.strip()]
+    text = parts[0] if parts else ""
+    half = len(text) // 2
+    if half > 10 and text[:half].strip() == text[half:].strip():
+        text = text[:half].strip()
+    return re.sub(r'^["\'\s]+|["\'\s]+$', "", text)
+
+
+def _generate(task, model, attempts=2):
+    """Pide una frase a Nemotron. Devuelve None si falla tras reintentar (sin internet, 429, vacia, fuera de rango)."""
+    for attempt in range(attempts):
+        try:
+            resp = nvidia_client().with_options(timeout=20, max_retries=0).chat.completions.create(
+                model=model,
+                messages=[{"role": "system", "content": PERSONA}, {"role": "user", "content": task}],
+                temperature=0.9,
+                max_tokens=1000,
+                **({"extra_body": {"reasoning_budget": 128}} if "nemotron" in model else {}),
+            )
+            text = tidy(resp.choices[0].message.content or "")
+            if 3 <= len(text.split()) <= 45:
+                return text
+            print(f"[frase] respuesta descartada ({resp.choices[0].finish_reason}, intento {attempt + 1}): {text!r}")
+        except Exception as e:
+            print(f"[frase] error {type(e).__name__}: {e}")
     return None
 
 
@@ -92,4 +105,4 @@ def write_roulette_line(person, dare, model=DEFAULT_MODEL):
     task = (f"A roulette just picked {who} out of several guests. Announce with theatrical drama that "
             f"they are the chosen one and command them to {dare}. Make it funny; mention the costume if there is one.")
     return _generate(task, model) or random.choice(ROULETTE_FALLBACK).format(
-        c=person.get("character", "stranger") if not is_no_costume(person) else "stranger", dare=dare)
+        c=person.get("character", "stranger") if not is_no_costume(person) else "stranger", dare=dare[:1].upper() + dare[1:])

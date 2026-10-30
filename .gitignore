@@ -11,3 +11,4 @@ build/
 vision/*.pt
 vision/*.jsonl
 vision/test_images/*_out.jpg
+vision/ruleta_elegido_*.jpg

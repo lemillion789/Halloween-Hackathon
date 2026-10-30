@@ -96,3 +96,14 @@ Con `--speak`: al detectar a alguien nuevo la calavera dice un relleno al instan
 ## Ruleta (`roulette.py`)
 
 Con la camara y `--speak`, tecla **S**: la ruleta recorre a las personas ya descritas que estan en pantalla (minimo 2), frena poco a poco en una (caja amarilla girando, roja al elegir) y la calavera anuncia con una frase de Nemotron que debe cumplir un reto. Por defecto `--dare "take a shot"` (solo para la fiesta); para el video del concurso usar otro reto, p. ej. `--dare "do your best villain laugh"`. Si la API falla usa frases de respaldo.
+
+## Modo juego (`game.py`, pygame)
+
+Foto -> YOLO separa a las personas -> cada una vuela a una tarjeta -> el VLM las describe (la tarjeta gira al llegar el resultado) -> la calavera las presenta de izquierda a derecha con subtitulos y mandibula -> tecla S: ruleta con la cara de cada participante, puntero con tictac y el elegido sube al centro con su reto.
+
+```bash
+.venv/bin/python game.py --source test_images/gemini_2.jpeg   # la imagen hace de camara
+.venv/bin/python game.py --camera 0
+# --mute (sin voz) --dare "take a shot" --speed 2 (anima mas rapido)
+```
+Teclas: ESPACIO foto, S ruleta (repetir), R nueva foto, ESC salir. Probado con descripciones simuladas (capturas headless); falta probar con la API y la voz reales.
