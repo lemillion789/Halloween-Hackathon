@@ -15,6 +15,16 @@ py -3.12 -m venv vision/.venv
 vision/.venv/Scripts/python -m pip install requests opencv-python pillow ollama openai anthropic
 ```
 
+En Linux:
+
+```bash
+python3 -m venv vision/.venv
+vision/.venv/bin/python -m pip install requests opencv-python pillow ollama openai anthropic
+export NVIDIA_API_KEY="nvapi-..."   # o ponerlo en ~/.bashrc
+```
+
+y usar `.venv/bin/python` en lugar de `.venv/Scripts/python`.
+
 ## Backends
 
 El backend se elige por el nombre del modelo (`--model`):

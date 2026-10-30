@@ -151,7 +151,8 @@ def describe(image_bgr, model=DEFAULT_MODEL):
 
 
 def run_camera(index, model):
-    cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+    # DirectShow solo existe en Windows; en Linux (V4L2) se usa el backend por defecto
+    cap = cv2.VideoCapture(index, cv2.CAP_DSHOW) if os.name == "nt" else cv2.VideoCapture(index)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     state = {"text": "ESPACIO = describir, Q = salir", "busy": False}
