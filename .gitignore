@@ -6,3 +6,8 @@ tools/
 *.AppImage
 # build de arduino-cli, si se crea dentro del proyecto
 build/
+
+# pesos de YOLO (se descargan solos) y log de pruebas
+vision/*.pt
+vision/*.jsonl
+vision/test_images/*_out.jpg

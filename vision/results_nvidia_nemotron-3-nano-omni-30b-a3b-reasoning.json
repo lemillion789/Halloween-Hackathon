@@ -1,0 +1,330 @@
+[
+  {
+    "image": "darth_vader_1.jpg",
+    "expected": "darth_vader",
+    "hit": false,
+    "seconds": 2.77,
+    "people": []
+  },
+  {
+    "image": "darth_vader_2.jpg",
+    "expected": "darth_vader",
+    "hit": true,
+    "seconds": 2.28,
+    "people": [
+      {
+        "character": "Darth Vader",
+        "category": "villain",
+        "description": "wearing black armor, cape, and helmet",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "image": "joker_2.jpg",
+    "expected": "joker",
+    "hit": true,
+    "seconds": 1.99,
+    "people": [
+      {
+        "character": "Joker",
+        "category": "villain",
+        "description": "green hair, white face paint with red lips, gray suit, pink flower, white gloves, holding a gun",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "image": "pikachu_1.jpg",
+    "expected": "pikachu",
+    "hit": false,
+    "seconds": 2.09,
+    "people": []
+  },
+  {
+    "image": "pikachu_2.jpg",
+    "expected": "pikachu",
+    "hit": true,
+    "seconds": 4.58,
+    "people": [
+      {
+        "character": "Pikachu",
+        "category": "anime/game",
+        "description": "yellow inflatable Pikachu with pink bow, red cheeks, and a colorful dress",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "image": "pirate_1.jpg",
+    "expected": "pirate",
+    "hit": true,
+    "seconds": 4.02,
+    "people": [
+      {
+        "character": "pirate",
+        "category": "fantasy",
+        "description": "wearing a pirate costume with a feathered tricorn hat, off-shoulder blouse, corset, long skirt, and blue sash",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "image": "pirate_2.jpg",
+    "expected": "pirate",
+    "hit": true,
+    "seconds": 9.51,
+    "people": [
+      {
+        "character": "pirate",
+        "category": "other",
+        "description": "wearing a black beanie and an eyepatch over one eye",
+        "confidence": 0.8
+      },
+      {
+        "character": "no costume",
+        "category": "none",
+        "description": "wearing a black jacket and jeans",
+        "confidence": 1.0
+      },
+      {
+        "character": "no costume",
+        "category": "none",
+        "description": "wearing a black coat and dark pants",
+        "confidence": 1.0
+      },
+      {
+        "character": "no costume",
+        "category": "none",
+        "description": "wearing an orange jacket and brown pants",
+        "confidence": 1.0
+      }
+    ]
+  },
+  {
+    "image": "skeleton_1.jpg",
+    "expected": "skeleton",
+    "hit": false,
+    "seconds": 10.04,
+    "people": [
+      {
+        "character": "no costume",
+        "category": "none",
+        "description": "woman with brown hair and glasses wearing regular clothes",
+        "confidence": 1.0
+      }
+    ]
+  },
+  {
+    "image": "skeleton_2.jpg",
+    "expected": "skeleton",
+    "hit": true,
+    "seconds": 4.89,
+    "people": [
+      {
+        "character": "skeleton",
+        "category": "undead",
+        "description": "black outfit with skeleton design, gray hat, holding a bouquet of flowers",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "image": "spider-man_1.jpg",
+    "expected": "spider-man",
+    "hit": true,
+    "seconds": 10.51,
+    "people": [
+      {
+        "character": "Spider-Man",
+        "category": "superhero",
+        "description": "wearing a brown hoodie over a Spider-Man suit",
+        "confidence": 0.95
+      },
+      {
+        "character": "no costume",
+        "category": "none",
+        "description": "wearing casual black shirt and beige pants",
+        "confidence": 1.0
+      },
+      {
+        "character": "Spider-Man",
+        "category": "superhero",
+        "description": "black hoodie with white spider emblem and blue eye mask",
+        "confidence": 0.9
+      },
+      {
+        "character": "Spider-Man",
+        "category": "superhero",
+        "description": "blue and red Spider-Man suit with web pattern",
+        "confidence": 1.0
+      }
+    ]
+  },
+  {
+    "image": "spider-man_2.jpg",
+    "expected": "spider-man",
+    "hit": true,
+    "seconds": 8.61,
+    "people": [
+      {
+        "character": "Gwen Stacy",
+        "category": "superhero",
+        "description": "blonde wig, green jacket, purple skirt, black top",
+        "confidence": 0.95
+      },
+      {
+        "character": "Mary Jane",
+        "category": "superhero",
+        "description": "red hair, black sleeveless top, beige pants",
+        "confidence": 0.8
+      },
+      {
+        "character": "Spider-Man",
+        "category": "superhero",
+        "description": "red and blue suit with mask",
+        "confidence": 1.0
+      }
+    ]
+  },
+  {
+    "image": "stormtrooper_1.jpg",
+    "expected": "stormtrooper",
+    "hit": true,
+    "seconds": 10.76,
+    "people": [
+      {
+        "character": "Stormtrooper",
+        "category": "movie/tv",
+        "description": "white armor with black accents holding a blaster",
+        "confidence": 1.0
+      },
+      {
+        "character": "no costume",
+        "category": "none",
+        "description": "red shirt and black shorts",
+        "confidence": 1.0
+      },
+      {
+        "character": "no costume",
+        "category": "none",
+        "description": "blue shorts and white top",
+        "confidence": 1.0
+      }
+    ]
+  },
+  {
+    "image": "stormtrooper_2.jpg",
+    "expected": "stormtrooper",
+    "hit": true,
+    "seconds": 9.68,
+    "people": [
+      {
+        "character": "Stormtrooper",
+        "category": "movie/tv",
+        "description": "white armor with black details, carrying a rifle",
+        "confidence": 0.95
+      },
+      {
+        "character": "no costume",
+        "category": "none",
+        "description": "red shirt and black shorts",
+        "confidence": 1.0
+      },
+      {
+        "character": "no costume",
+        "category": "none",
+        "description": "brown shirt and blue denim shorts",
+        "confidence": 1.0
+      }
+    ]
+  },
+  {
+    "image": "vampire_1.jpg",
+    "expected": "vampire",
+    "hit": true,
+    "seconds": 1.32,
+    "people": [
+      {
+        "character": "vampire",
+        "category": "undead",
+        "description": "white face paint, black cape with collar and bow tie",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "image": "witch_2.jpg",
+    "expected": "witch",
+    "hit": true,
+    "seconds": 10.04,
+    "people": [
+      {
+        "character": "witch",
+        "category": "fantasy",
+        "description": "purple cloak, blonde wig, holding a doll",
+        "confidence": 0.95
+      },
+      {
+        "character": "witch",
+        "category": "fantasy",
+        "description": "green dress, brown wig, black cape, gloves",
+        "confidence": 0.95
+      },
+      {
+        "character": "witch",
+        "category": "fantasy",
+        "description": "red cape, orange corset, plaid skirt, tall black and purple wig",
+        "confidence": 0.95
+      },
+      {
+        "character": "princess",
+        "category": "fantasy",
+        "description": "blue dress, pink top",
+        "confidence": 0.85
+      }
+    ]
+  },
+  {
+    "image": "wonder_woman_1.jpg",
+    "expected": "wonder_woman",
+    "hit": true,
+    "seconds": 1.45,
+    "people": [
+      {
+        "character": "Wonder Woman",
+        "category": "superhero",
+        "description": "red and blue costume with gold accents, tiara with star, and red sneakers",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "image": "wonder_woman_2.jpg",
+    "expected": "wonder_woman",
+    "hit": true,
+    "seconds": 1.43,
+    "people": [
+      {
+        "character": "Wonder Woman",
+        "category": "superhero",
+        "description": "golden armor top, red and blue star-patterned shorts, red boots, tiara with star",
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "image": "zombie_1.jpg",
+    "expected": "zombie",
+    "hit": true,
+    "seconds": 2.95,
+    "people": [
+      {
+        "character": "zombie",
+        "category": "undead",
+        "description": "white face paint, red nose, dark sunglasses, blood-stained denim jacket",
+        "confidence": 0.95
+      }
+    ]
+  }
+]

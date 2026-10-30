@@ -21,7 +21,7 @@ import time
 
 import cv2
 
-DEFAULT_MODEL = "meta/llama-3.2-90b-vision-instruct"
+DEFAULT_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"  # Llama Vision no se puede usar en la UE
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1"
 MAX_SIDE = 640  # se reduce la imagen antes de mandarla: mas rapido y casi igual de preciso
 
@@ -56,6 +56,10 @@ SCHEMA = {
     "required": ["people"],
     "additionalProperties": False,
 }
+
+# Nemotron es de razonamiento: reasoning_budget limita los tokens que "piensa" (menos = mas rapido)
+# y max_tokens tiene que dejar espacio para el JSON final.
+NEMOTRON_ARGS = {"max_tokens": 2048, "extra_body": {"reasoning_budget": 1024}}
 
 _claude = None
 _nvidia = None
@@ -110,44 +114,65 @@ def _ask_claude(jpg, model):
     return next(b.text for b in resp.content if b.type == "text")
 
 
-def _ask_nvidia(jpg, model):
+def nvidia_client():
     global _nvidia
     from openai import OpenAI
 
     if _nvidia is None:
-        _nvidia = OpenAI(base_url=NVIDIA_URL, api_key=os.environ["NVIDIA_API_KEY"])
+        _nvidia = OpenAI(base_url=NVIDIA_URL, api_key=os.environ["NVIDIA_API_KEY"], timeout=60, max_retries=1)
+    return _nvidia
+
+
+def _ask_nvidia(jpg, model):
     b64 = base64.standard_b64encode(jpg).decode()
     prompt = PROMPT + '\nAnswer ONLY with JSON like {"people": [{"character": "...", "category": "...", ' \
                       '"description": "...", "confidence": 0.9}]}'
-    resp = _nvidia.chat.completions.create(
+    resp = nvidia_client().chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": [
             {"type": "text", "text": prompt},
             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
         ]}],
         temperature=0.1,
-        max_tokens=600,
+        **(NEMOTRON_ARGS if "nemotron" in model else {"max_tokens": 600}),
     )
     return resp.choices[0].message.content
 
 
 def _parse(text):
-    """Algunos modelos envuelven el JSON en ```json ...``` o texto: se extrae el primer {...}."""
-    m = re.search(r"\{.*\}", text or "", re.S)
-    try:
-        result = json.loads(m.group(0) if m else text)
-        result.setdefault("people", [])
-        return result
-    except (json.JSONDecodeError, AttributeError):
-        return {"people": [], "raw": text}
+    """Extrae las personas del texto del modelo. Nemotron a veces devuelve una lista suelta, repite el
+    JSON varias veces o lo deja cortado: se recorre el texto y se juntan todos los objetos completos."""
+    text = text or ""
+    dec = json.JSONDecoder()
+    people, seen, i = [], set(), 0
+    while True:
+        i = text.find("{", i)
+        if i < 0:
+            break
+        try:
+            obj, end = dec.raw_decode(text, i)
+        except json.JSONDecodeError:
+            i += 1
+            continue
+        found = obj.get("people", []) if "people" in obj else [obj] if "character" in obj else []
+        for p in found:
+            key = (p.get("character"), p.get("description"))
+            if key not in seen:
+                seen.add(key)
+                people.append(p)
+        i = end
+    return {"people": people} if people or "people" in text else {"people": [], "raw": text}
 
 
-def describe(image_bgr, model=DEFAULT_MODEL):
+def describe(image_bgr, model=DEFAULT_MODEL, retry_empty=True):
     """Devuelve ({"people": [...]}, segundos). Backend segun el nombre del modelo (ver arriba)."""
     t0 = time.perf_counter()
     ask = _ask_ollama if ":" in model else _ask_nvidia if "/" in model else _ask_claude
-    text = ask(encode(image_bgr), model)
-    return _parse(text), time.perf_counter() - t0
+    jpg = encode(image_bgr)
+    result = _parse(ask(jpg, model))
+    if not result["people"] and retry_empty:  # Nemotron a veces contesta "nadie" sin razonar: se pregunta otra vez
+        result = _parse(ask(jpg, model))
+    return result, time.perf_counter() - t0
 
 
 def run_camera(index, model):

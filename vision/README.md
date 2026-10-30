@@ -31,7 +31,7 @@ El backend se elige por el nombre del modelo (`--model`):
 
 | Nombre | Backend | Necesita |
 |---|---|---|
-| con `/` (por defecto `meta/llama-3.2-90b-vision-instruct`) | API de NVIDIA, build.nvidia.com | internet + `NVIDIA_API_KEY` |
+| con `/` (por defecto `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`) | API de NVIDIA, build.nvidia.com | internet + `NVIDIA_API_KEY` |
 | con `:` (p. ej. `qwen3-vl:2b-instruct`) | Ollama local | `ollama pull <modelo>` |
 | `claude-*` | API de Claude | internet + `ANTHROPIC_API_KEY` |
 
@@ -60,7 +60,35 @@ Las fotos se bajan de Wikimedia Commons con `fetch_test_images.py`, que guarda a
 |---|---|---|---|
 | qwen3-vl:2b-instruct (Ollama) | 15/18 | ~18 | 16 s solo en procesar imagen+prompt; 20 % del modelo en CPU |
 | qwen3-vl:4b-instruct (Ollama) | - | >18 | 54 % en CPU; prueba cancelada |
-| API de NVIDIA | pendiente | | |
+| nvidia/nemotron-3-nano-omni-30b-a3b-reasoning (API NVIDIA) | 15/18 | ~5.5 (1-3 s con una persona, hasta 10 s con grupos) | `reasoning_budget` 1024, reintenta si la lista viene vacia. Fallan darth_vader_1, pikachu_1 (lista vacia) y skeleton_1 ("no costume") |
+| Llama 3.2 Vision (11b/90b) | no usable | | Licencia excluye la UE (Suecia) |
 
 Conclusión: en esta GPU un VLM local no baja de 10 s. Para jugar se usa la API.
 Para el concurso, que tiene que ser 100 % offline, la idea es CLIP para nombrar el personaje rápido y el VLM en la Jetson para la descripción.
+
+## Pipeline con varias personas (`person_costume.py`)
+
+YOLO11n + ByteTrack detectan personas, se recorta cada una y el VLM se llama una vez por ID (hilos, max 6 a la vez; el plan gratis permite 40 rpm). Etiqueta verde = ya descrita; `R` vuelve a describir a todos.
+
+```bash
+.venv/bin/python person_costume.py --camera 0 --model nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+.venv/bin/python person_costume.py --source foto.jpg
+```
+
+Nemotron a veces devuelve listas sueltas, JSON repetido o cortado; `_parse` junta los objetos completos.
+Al hablar, evitar detalles de armas del VLM (reglas del concurso: sin violencia realista).
+
+## Voz (`tts.py`)
+
+Kokoro-82M offline + efectos de terror (pedalboard: tono -2 semitonos, eco, reverb), voz `bm_george`. Solo para la fiesta del 31 oct en la laptop; para el concurso se cambiara por otro modelo local.
+
+```bash
+.venv/bin/python tts.py "I see you, Batman"   # --demo, --voice bm_george, --speed 0.8, --pitch -3, --dry, --out x.wav
+.venv/bin/python person_costume.py --camera 0 --speak
+```
+
+Un token viejo en `~/.cache/huggingface/token` daba 401 al bajar Kokoro; `tts.py` lo ignora (`HF_HUB_DISABLE_IMPLICIT_TOKEN`).
+
+## Frases (`skull_lines.py`)
+
+Con `--speak`: al detectar a alguien nuevo la calavera dice un relleno al instante ("Hmm... what do we have here..."; solo si esta callada y no hubo otro hace 12 s); cuando el VLM termina, Nemotron escribe una frase segun el disfraz (segunda llamada, solo texto, `reasoning_budget` 128, timeout 20 s). Si no se identifica el disfraz ("no costume", lista vacia tras el reintento o confianza < 0.3) dice una frase sarcastica sobre no tener disfraz. Si la API falla usa plantillas. El prompt prohibe armas, violencia e insultos personales (reglas del concurso). Cada frase queda en `person_costume.log.jsonl`.
