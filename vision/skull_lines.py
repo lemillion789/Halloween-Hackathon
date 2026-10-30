@@ -25,14 +25,54 @@ NO_COSTUME_FALLBACK = [
     "No costume at all... the scariest thing here is the lack of effort.",
 ]
 
-PERSONA = ("You are a creepy, theatrical and sarcastic animatronic Halloween skull with dark British humor, "
-           "speaking to a guest at a party. Say ONE short spoken line (max 22 words), in English. "
-           "Playful and spooky, never gory: no violence, weapons, death threats, or insults about the "
-           "guest's body, age, gender or identity. Output only the line itself, no quotes, no stage directions.")
+PERSONA = (
+    "You are a stand-up comedian trapped in an animatronic Halloween skull: dry British humor, theatrical, "
+    "sarcastic and spooky, talking to a guest at a party. Say ONE spoken line (max 28 words), in English, "
+    "with a real punchline. Be funny, not just creepy: riff on SPECIFIC details of the costume (props, colors, "
+    "accessories, effort), use puns, absurd comparisons, or deadpan exaggeration, and sometimes joke about "
+    "being a skeleton (no skin, no brain, no lunch). Never gory: no violence, weapons, death threats, and no "
+    "insults about the guest's body, age, gender or identity; tease the costume, never the person. "
+    "Do not copy these examples, they only show the tone: "
+    "'Batman? Bold of you to sit down. I thought you only appeared when someone shined a light at a cloud.' / "
+    "'A pirate, how brave. Tell me, do you also keep your treasure map under the couch cushions?' / "
+    "'Spider-Man flashing a peace sign. The only superhero who also leads yoga classes.' "
+    "Output only the line itself, no stage directions."
+)
 
 
 def filler():
     return random.choice(FILLERS)
+
+
+NUMBERS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+
+FIRST_WAIT = [
+    "Let me see... I count {who} in this photo. Hold still while I judge your costumes.",
+    "Ah, {who}. I have empty sockets for eyes and even I can see the effort. Or the lack of it.",
+    "{Who} detected. Please do not move, I am developing my opinions.",
+    "{Who}! Bold of you to enter my house. Now stay still while I stare at you.",
+]
+
+MORE_WAIT = [
+    "Analyzing... this takes a while when you have no brain, only dust.",
+    "Give me a second. Dead people are not known for their speed.",
+    "Hmm, interesting... one of you is hiding something under that costume. Probably a sandwich.",
+    "I would tap my fingers, but they fell off in eighteen twenty three.",
+    "Almost there. Try to look scarier, the camera is watching.",
+    "Still thinking... my brain is on vacation, but my jaw is on overtime.",
+    "Do not worry, I only judge a little. Okay, a lot.",
+]
+
+
+def waiting_lines(n):
+    """Frases para llenar la espera del VLM: la primera cuenta a las personas, las demas son relleno gracioso
+    (sin repetir en la misma ronda)."""
+    count = NUMBERS[n] if n < len(NUMBERS) else str(n)
+    who = "one soul" if n == 1 else f"{count} souls"
+    first = random.choice(FIRST_WAIT).format(who=who, Who=who.capitalize())
+    more = MORE_WAIT[:]
+    random.shuffle(more)
+    return [first] + more
 
 
 def is_no_costume(person):
@@ -51,18 +91,28 @@ def tidy(text):
     return re.sub(r'^["\'\s]+|["\'\s]+$', "", text)
 
 
+FORMAT = " Reply with the line wrapped in <line></line> tags and nothing else."
+
+
+def extract_line(raw):
+    """Solo vale lo que va dentro de <line>...</line> (la ultima aparicion): si el modelo filtra su razonamiento
+    ('Let's count words...') queda fuera. Sin etiquetas -> cadena vacia."""
+    found = re.findall(r"<line>(.*?)</line>", raw or "", re.S | re.I)
+    return tidy(found[-1]) if found else ""
+
+
 def _generate(task, model, attempts=2):
     """Pide una frase a Nemotron. Devuelve None si falla tras reintentar (sin internet, 429, vacia, fuera de rango)."""
     for attempt in range(attempts):
         try:
             resp = nvidia_client().with_options(timeout=20, max_retries=0).chat.completions.create(
                 model=model,
-                messages=[{"role": "system", "content": PERSONA}, {"role": "user", "content": task}],
-                temperature=0.9,
+                messages=[{"role": "system", "content": PERSONA}, {"role": "user", "content": task + FORMAT}],
+                temperature=1.0,
                 max_tokens=1000,
                 **({"extra_body": {"reasoning_budget": 128}} if "nemotron" in model else {}),
             )
-            text = tidy(resp.choices[0].message.content or "")
+            text = extract_line(resp.choices[0].message.content)
             if 3 <= len(text.split()) <= 45:
                 return text
             print(f"[frase] respuesta descartada ({resp.choices[0].finish_reason}, intento {attempt + 1}): {text!r}")
@@ -79,7 +129,7 @@ def write_line(person, model=DEFAULT_MODEL):
                 "sarcastically about not having a good costume.")
     else:
         task = (f"The guest is dressed as {person['character']} ({person.get('description', '')}). "
-                f"Greet them in character as the skull, mentioning the costume with a witty or ominous comment.")
+                f"Roast the costume with one funny line that mentions a specific detail of it.")
     return _generate(task, model) or (random.choice(NO_COSTUME_FALLBACK) if nothing else spooky_line(person))
 
 

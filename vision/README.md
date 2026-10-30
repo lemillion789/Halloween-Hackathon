@@ -107,3 +107,13 @@ Foto -> YOLO separa a las personas -> cada una vuela a una tarjeta -> el VLM las
 # --mute (sin voz) --dare "take a shot" --speed 2 (anima mas rapido)
 ```
 Teclas: ESPACIO foto, S ruleta (repetir), R nueva foto, ESC salir. Probado con descripciones simuladas (capturas headless); falta probar con la API y la voz reales.
+
+### Musica de fondo (`music.py`)
+
+`game.py` reproduce un loop de Halloween de 24 s generado por codigo (zumbido grave, caja de musica en La menor armonica, campanadas y viento; sin derechos de autor y sin archivos). Baja a ~30 % mientras la calavera habla y sube al callar. Tecla **M** la apaga/enciende. `--music archivo.mp3` usa tu propia pista, `--music-volume 0.5` cambia el volumen y `--no-music` la quita. `.venv/bin/python music.py` lo reproduce en bucle (Ctrl+C para parar) y `music.py --save loop.wav` lo guarda.
+
+Al salir el elegido de la ruleta suena un golpe de terror generado (`music.make_sting`: impacto grave, chillido disonante y campana); la musica cede un instante y el anuncio de la calavera espera ~1.6 s. Para oirlo solo: `.venv/bin/python music.py --sting`.
+
+`--music test_sounds/sound1.mp3` usa una pista tuya: el juego recorta el silencio del principio y del final y funde el final con el inicio para que el loop no tenga hueco. Revisa la licencia de lo que descargues (atribucion, uso comercial) antes de subirlo al repo o usarlo en el video del concurso.
+
+Musica por defecto: `test_sounds/sound1.mp3` si existe (no esta en el repo: licencia sin confirmar); si no, el loop generado. `--music generated` fuerza el generado.

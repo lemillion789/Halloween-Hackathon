@@ -9,10 +9,12 @@ Uso:
   .venv/bin/python game.py --source test_images/gemini_2.jpeg   # imagen como si fuera la camara
   .venv/bin/python game.py --camera 0
   --mute  sin voz (solo subtitulos) | --dare "take a shot" | --model ... | --speed 2  (acelera las animaciones)
-Teclas: ESPACIO foto, S ruleta (otra vez para repetir), R nueva foto, ESC salir.
+Teclas: ESPACIO foto, S ruleta (otra vez para repetir), R nueva foto, M musica on/off, ESC salir.
+Musica: loop de Halloween generado por music.py (baja solo cuando la calavera habla); --music archivo.mp3 usa la tuya.
 """
 import argparse
 import math
+import os
 import random
 import time
 import unicodedata
@@ -25,16 +27,18 @@ from ultralytics import YOLO
 
 from costume_describer import DEFAULT_MODEL, describe
 from person_costume import NO_COSTUME, crop_person
-from skull_lines import filler, roulette_intro, write_line, write_roulette_line
+from skull_lines import roulette_intro, waiting_lines, write_line, write_roulette_line
 from tts import Speaker
 
 W, H = 1280, 720
 FPS = 60
+STING_DELAY = 1.6      # el anuncio de la ruleta espera a que pase lo mas fuerte del golpe de terror
 MAX_WAIT_LINE = 8.0   # segundos esperando el anuncio de la ruleta antes de usar uno generico
 SPIN_TIME = 7.0
 PALETTE = [(255, 110, 0), (150, 70, 220), (50, 190, 100), (220, 40, 70), (240, 200, 40), (40, 150, 220)]
 ORANGE, GREEN, RED, BONE = (255, 130, 20), (120, 255, 90), (230, 40, 50), (235, 230, 215)
 CARD_BG, INK = (34, 20, 48), (14, 6, 22)
+DEFAULT_MUSIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_sounds", "sound1.mp3")
 FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 CATEGORY_COLORS = {"superhero": (60, 140, 255), "villain": (220, 40, 70), "undead": (150, 200, 150),
                    "monster": (120, 220, 80), "fantasy": (190, 100, 240), "movie/tv": (255, 170, 40),
@@ -168,6 +172,9 @@ class Game:
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         self.t0 = time.time()
         self.sounds = self._make_sounds()
+        self.music_base, self.music_vol, self.music_on, self.music = args.music_volume, 0.0, not args.no_music, None
+        if self.music_on:
+            self._start_music(args.music)
         self.live_frame = self.still
         self.reset()
 
@@ -182,6 +189,7 @@ class Game:
         self.sub_text, self.sub_t0 = "", 0.0
         self.confetti = []
         self.spin_count = 0
+        self.wait_lines = []
 
     def _make_sounds(self):
         try:
@@ -191,10 +199,39 @@ class Game:
             snap = (np.random.uniform(-1, 1, int(22050 * 0.09)) * np.exp(-np.linspace(0, 9, int(22050 * 0.09))) * 22000).astype(np.int16)
             if pygame.mixer.get_init()[2] == 2:  # algunos dispositivos solo abren en estereo
                 tick, snap = np.column_stack((tick, tick)), np.column_stack((snap, snap))
-            return {"tick": pygame.sndarray.make_sound(tick), "snap": pygame.sndarray.make_sound(snap)}
+            from music import make_sting
+            sting = make_sting(22050, pygame.mixer.get_init()[2])
+            return {"tick": pygame.sndarray.make_sound(tick), "snap": pygame.sndarray.make_sound(snap),
+                    "sting": pygame.sndarray.make_sound(sting)}
         except Exception as e:
             print(f"[juego] sin sonido de efectos: {e}")
             return {}
+
+    def _start_music(self, path):
+        """Musica de fondo: tu archivo (--music) o el loop generado por music.py. Entra con fundido."""
+        try:
+            from music import loop_from_file, make_loop
+            freq, _, channels = pygame.mixer.get_init()
+            pygame.mixer.set_reserved(1)  # el canal 0 es solo de la musica; los efectos usan los demas
+            self.music_ch = pygame.mixer.Channel(0)
+            self.music_ch.set_volume(0.0)
+            sound = loop_from_file(path) if path and path != "generated" else pygame.sndarray.make_sound(make_loop(22050, channels))
+            self.music_ch.play(sound, loops=-1)
+            self.music = "loop"
+        except Exception as e:
+            print(f"[juego] sin musica de fondo: {e}")
+
+    def speaking(self, now):
+        return self.talking() or (bool(self.sub_text) and now - self.sub_t0 < 0.04 * len(self.sub_text))
+
+    def update_music(self, now):
+        """La musica baja mientras la calavera habla (para que se entienda) y sube al callar."""
+        if self.music is None:
+            return
+        sting = self.state in ("WINNER", "END") and now - self.win_t0 < 2.5  # la musica cede ante el golpe de terror
+        target = self.music_base * (0.3 if self.speaking(now) or sting else 1.0) if self.music_on else 0.0
+        self.music_vol += (target - self.music_vol) * 0.05
+        self.music_ch.set_volume(self.music_vol)
 
     def play(self, name):
         if name in self.sounds:
@@ -225,6 +262,7 @@ class Game:
             if e.type == pygame.KEYDOWN:
                 self.on_key(e.key, now)
         getattr(self, "update_" + self.state.lower())(now)
+        self.update_music(now)
         self.draw(now)
         pygame.display.flip()
         self.clock.tick(FPS)
@@ -235,6 +273,8 @@ class Game:
             self.snap(now)
         elif key == pygame.K_s and self.state in ("READY", "END") and len(self.cards) >= 2:
             self.start_wheel(now)
+        elif key == pygame.K_m:
+            self.music_on = not self.music_on
         elif key == pygame.K_r and self.state in ("READY", "END", "EMPTY", "NARRATE"):
             self.reset()
 
@@ -287,15 +327,21 @@ class Game:
             boxes = self.det_future.result()
             if boxes:
                 self.build_cards(boxes)
-                if self.speaker:
-                    self.speaker.say(filler())
+                self.wait_lines = waiting_lines(len(boxes))  # la primera cuenta a las personas
+                self.say(self.wait_lines.pop(0))
             elif now - self.flash_t0 > 0.5:
                 self.state = "EMPTY"
         if self.cards and now - self.flash_t0 > 0.4:
             self.state, self.split_t0 = "SPLIT", now
 
     # ---------- 2. separar ----------
+    def chatter(self):
+        """Mientras el VLM no termina, la calavera sigue con frases de relleno para que no haya silencio."""
+        if self.speaker and self.wait_lines and self.speaker.idle() and not all(c.future.done() for c in self.cards):
+            self.say(self.wait_lines.pop(0))
+
     def update_split(self, now):
+        self.chatter()
         n = len(self.cards)
         t_boxes = 0.3 + 0.25 * n + 0.4
         for c in self.cards:
@@ -305,6 +351,7 @@ class Game:
             self.state, self.desc_t0 = "DESCRIBE", now
 
     def update_describe(self, now):
+        self.chatter()
         for c in self.cards:
             if c.result is None and c.future.done():
                 c.result, c.flip_t0 = c.future.result(), now
@@ -360,6 +407,7 @@ class Game:
         self.flick = max(0.0, self.flick - 0.09)
         if t > SPIN_TIME + 0.9:
             self.state, self.win_t0 = "WINNER", now
+            self.play("sting")  # golpe de terror al salir el elegido
             self.spawn_confetti()
 
     def spawn_confetti(self):
@@ -370,7 +418,7 @@ class Game:
     def update_winner(self, now):
         if not self.announced:
             waited = now - self.win_t0 > MAX_WAIT_LINE
-            if self.line_future.done() or waited:
+            if now - self.win_t0 > STING_DELAY and (self.line_future.done() or waited):
                 line = clean(self.line_future.result() if self.line_future.done() else
                              "The wheel has chosen. Take a shot, you know who you are.")
                 self.announced, self.said_t0, self.said_text = True, now, line
@@ -432,6 +480,7 @@ class Game:
         self.text("LIVE", self.f_body, BONE, (60, 30))
         msg = "No people found - press SPACE to try again" if self.state == "EMPTY" else "Press SPACE to take the photo"
         self.text(msg, self.f_title, ORANGE, (W // 2, H - 70), "center")
+        self.text("M: music on/off", self.f_small, BONE, (W - 20, 20), "topright")
 
     def draw_flash(self, now):
         a = 1 - clamp((now - self.flash_t0) / 0.35)
@@ -632,9 +681,9 @@ class Game:
 
     def draw_hud(self, now):
         st = self.state
-        if st in ("LIVE", "SNAP", "EMPTY", "SPLIT"):
+        if st in ("LIVE", "SNAP", "EMPTY"):
             return
-        self.draw_skull(70, H - 62, self.talking() or (bool(self.sub_text) and now - self.sub_t0 < 0.04 * len(self.sub_text)), now)
+        self.draw_skull(70, H - 62, self.speaking(now), now)
         if self.sub_text:
             text = self.sub_text[:int((now - self.sub_t0) * 38)]
             for i, line in enumerate(wrap(text, self.f_body, W - 220)[-2:]):
@@ -650,7 +699,6 @@ class Game:
 
 
 def _exists(path):
-    import os
     return os.path.exists(path)
 
 
@@ -661,6 +709,11 @@ def main():
     ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--yolo", default="yolo11n.pt")
     ap.add_argument("--dare", default="take a shot", help="reto de la ruleta, en ingles")
+    ap.add_argument("--music", default=DEFAULT_MUSIC if os.path.exists(DEFAULT_MUSIC) else None,
+                    help="musica de fondo (mp3/ogg/wav); por defecto test_sounds/sound1.mp3 si existe, si no el loop "
+                         "generado; 'generated' fuerza el generado")
+    ap.add_argument("--no-music", action="store_true", help="sin musica de fondo")
+    ap.add_argument("--music-volume", type=float, default=0.35, help="volumen de la musica, 0 a 1")
     ap.add_argument("--mute", action="store_true", help="sin voz, solo subtitulos")
     ap.add_argument("--speed", type=float, default=1.0, help="velocidad de las animaciones")
     Game(ap.parse_args()).run()
