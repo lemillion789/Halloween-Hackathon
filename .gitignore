@@ -2,7 +2,7 @@
 CAD/.venv/
 vision/.venv/
 __pycache__/
-tools/
+tools/freecad/
 *.AppImage
 # build de arduino-cli, si se crea dentro del proyecto
 build/
