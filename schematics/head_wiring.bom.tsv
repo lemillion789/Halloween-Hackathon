@@ -1,0 +1,25 @@
+Id	Description	Qty	Unit	Designators
+1	Cable, 1 x 0.75 mm²	0	m	W_GND
+2	Cable, 2 x 0.25 mm²	2	m	W_ESTOP, W_USB_ESP, W_USB_N
+3	Cable, 2 x 1.5 mm²	0	m	W_12V, W_12V2, W_PWR_IN
+4	Cable, 3 x 0.25 mm²	0	m	W_HOVER_L, W_HOVER_R, W_LED
+5	Cable, 3 x 0.75 mm²	0	m	W_PAN, W_TILT
+6	Cable, 4 x 0.25 mm²	0	m	W_I2C, W_SONAR
+7	Cable, 8 x 0.25 mm²	0	m	W_TFT_L, W_TFT_R
+8	Connector, Bateria hoverboard 36V, 2 pins	1		BAT
+9	Connector, Boton de paro (GPIO27 a GND), 2 pins	1		ESTOP
+10	Connector, Buck XL4015 12V a 5V (servo cabeceo), 4 pins	1		PWR2
+11	Connector, Buck XL4015 12V a 5V (servo giro), 4 pins	1		PWR
+12	Connector, Driver LEDs rojos (KSP2222A), 3 pins	1		LEDS
+13	Connector, ESP32 (ojos, CP2102), 13 pins	1		ESP32
+14	Connector, ESP32-WROOM (cuello/hoverboard, CP2102), 12 pins	1		ESP32N
+15	Connector, GY-521 (MPU-6050), 4 pins	1		IMU
+16	Connector, HC-SR04, 4 pins	1		SONAR
+17	Connector, Jetson Orin Nano, USB-A x2, 2 pins	1		JETSON
+18	Connector, Placa DERECHA hoverboard (Gen2.x, SLAVE_ID 0), 3 pins	1		HOVER_R
+19	Connector, Placa IZQUIERDA hoverboard (Gen2.x, SLAVE_ID 1), 3 pins	1		HOVER_L
+20	Connector, SZDULI 180W 18-75V a 12V 15A, 4 pins	1		SZ
+21	Connector, Servo (cabeceo), 3 pins	1		SERVO_TILT
+22	Connector, Servo MG996R (giro), 3 pins	1		SERVO_PAN
+23	Connector, TFT ST7735 1.8" (ojo derecho), 8 pins	1		TFT_R
+24	Connector, TFT ST7735 1.8" (ojo izquierdo), 8 pins	1		TFT_L

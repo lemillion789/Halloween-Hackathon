@@ -1,0 +1,233 @@
+# Cableado de la calavera: ojos + IMU + LEDs (ESP32 ojos), cuello + hoverboard + ultrasonido (ESP32 cuello)
+# Pines tomados de CLAUDE.md. Hoverboard: 2 placas, cada una con su UART (8 nov). Generar: .venv/bin/wireviz head_wiring.yml
+connectors:
+  JETSON:
+    type: Jetson Orin Nano
+    subtype: USB-A x2
+    pinlabels: [USB1, USB2]
+    pins: [1, 2]
+    notes: Cerebro. Manda L/M/B/G al ESP32 ojos y P/T/V al ESP32 cuello (115200)
+  ESP32:
+    type: ESP32 (ojos, CP2102)
+    pinlabels: [GND, 3V3, 5V/VIN, G18 SCK, G23 MOSI, G16 DC, G4 RST, G17 CS_IZQ, G5 CS_DER, G21 SDA, G22 SCL, G32 LED, USB]
+    pins: [1,2,3,4,5,6,7,8,9,10,11,12,13]
+  TFT_L:
+    type: TFT ST7735 1.8" (ojo izquierdo)
+    pinlabels: [VCC, GND, SCK, SDA/MOSI, A0/DC, RESET, CS, LED]
+    pins: [1,2,3,4,5,6,7,8]
+  TFT_R:
+    type: TFT ST7735 1.8" (ojo derecho)
+    pinlabels: [VCC, GND, SCK, SDA/MOSI, A0/DC, RESET, CS, LED]
+    pins: [1,2,3,4,5,6,7,8]
+  IMU:
+    type: GY-521 (MPU-6050)
+    pinlabels: [VCC, GND, SCL, SDA]
+    pins: [1,2,3,4]
+  LEDS:
+    type: Driver LEDs rojos (KSP2222A)
+    pinlabels: [BASE via 1k, GND, 3V3 via 100R/LED]
+    pins: [1,2,3]
+    notes: 3 LEDs, 100 ohm cada uno
+  ESP32N:
+    type: ESP32-WROOM (cuello/hoverboard, CP2102)
+    pinlabels: [USB, GND, G13 PAN, G14 TILT, G16 RX2, G17 TX2, G25 TRIG, G26 ECHO, G27 ESTOP, 5V/VIN, G19 RX1, G21 TX1]
+    pins: [1,2,3,4,5,6,7,8,9,10,11,12]
+  PWR:
+    type: Buck XL4015 12V a 5V (servo giro)
+    pinlabels: [IN+, IN-, OUT+, OUT-]
+    pins: [1,2,3,4]
+    notes: Entrada 12 V del modulo SZDULI. Ajustar 5.0-6.0 V y medir antes de conectar
+  PWR2:
+    type: Buck XL4015 12V a 5V (servo cabeceo)
+    pinlabels: [IN+, IN-, OUT+, OUT-]
+    pins: [1,2,3,4]
+    notes: Ajustar 5.0 V y medir antes de conectar
+  SZ:
+    type: SZDULI 180W 18-75V a 12V 15A
+    pinlabels: [IN+, IN-, OUT+, OUT-]
+    pins: [1,2,3,4]
+    notes: Fusible 8-10 A DC en IN+. Verificar colores con multimetro
+  BAT:
+    type: Bateria hoverboard 36V
+    pinlabels: [POS, NEG]
+    pins: [1,2]
+  SERVO_PAN:
+    type: Servo MG996R (giro)
+    pinlabels: [SENAL, V+, GND]
+    pins: [1,2,3]
+    notes: 470-1000 uF entre V+ y GND
+  SERVO_TILT:
+    type: Servo (cabeceo)
+    pinlabels: [SENAL, V+, GND]
+    pins: [1,2,3]
+    notes: 470-1000 uF entre V+ y GND
+  HOVER_R:
+    type: Placa DERECHA hoverboard (Gen2.x, SLAVE_ID 0)
+    pinlabels: [PB6 TX, PB7 RX, GND]
+    pins: [1,2,3]
+    notes: Conector USART de la placa, UART2 del ESP32. 19200, 3.3 V. Arranca uniendo 2 pines del boton
+  HOVER_L:
+    type: Placa IZQUIERDA hoverboard (Gen2.x, SLAVE_ID 1)
+    pinlabels: [PB6 TX, PB7 RX, GND]
+    pins: [1,2,3]
+    notes: Conector USART de la placa, UART1 del ESP32. 19200, 3.3 V. Sin cable maestro-esclavo
+  SONAR:
+    type: HC-SR04
+    pinlabels: [VCC, TRIG, ECHO, GND]
+    pins: [1,2,3,4]
+    notes: ECHO a GPIO26 con divisor 1k/2k
+  ESTOP:
+    type: Boton de paro (GPIO27 a GND)
+    pinlabels: [A, B]
+    pins: [1,2]
+
+cables:
+  W_USB_ESP:
+    gauge: 0.25 mm2
+    length: 1
+    colors: [RD, BK]
+    wirecount: 2
+    show_name: true
+  W_TFT_L:
+    gauge: 0.25 mm2
+    colors: [RD, BK, YE, GN, BU, VT, OG, WH]
+    wirecount: 8
+  W_TFT_R:
+    gauge: 0.25 mm2
+    colors: [RD, BK, YE, GN, BU, VT, OG, WH]
+    wirecount: 8
+  W_I2C:
+    gauge: 0.25 mm2
+    colors: [RD, BK, YE, GN]
+    wirecount: 4
+  W_LED:
+    gauge: 0.25 mm2
+    colors: [WH, BK, RD]
+    wirecount: 3
+  W_USB_N:
+    gauge: 0.25 mm2
+    length: 1
+    colors: [RD, BK]
+    wirecount: 2
+    show_name: true
+  W_PAN:
+    gauge: 0.75 mm2
+    colors: [OG, RD, BN]
+    wirecount: 3
+  W_TILT:
+    gauge: 0.75 mm2
+    colors: [OG, RD, BN]
+    wirecount: 3
+  W_PWR_IN:
+    gauge: 1.5 mm2
+    colors: [RD, BK]
+    wirecount: 2
+  W_HOVER_R:
+    gauge: 0.25 mm2
+    colors: [GN, YE, BK]
+    wirecount: 3
+  W_HOVER_L:
+    gauge: 0.25 mm2
+    colors: [GN, YE, BK]
+    wirecount: 3
+  W_SONAR:
+    gauge: 0.25 mm2
+    colors: [RD, WH, YE, BK]
+    wirecount: 4
+  W_ESTOP:
+    gauge: 0.25 mm2
+    colors: [WH, BK]
+    wirecount: 2
+  W_12V:
+    gauge: 1.5 mm2
+    colors: [YE, BK]
+    wirecount: 2
+  W_12V2:
+    gauge: 1.5 mm2
+    colors: [YE, BK]
+    wirecount: 2
+  W_GND:
+    gauge: 0.75 mm2
+    colors: [BK]
+    wirecount: 1
+
+connections:
+  - [JETSON: [1], W_USB_ESP: [1], ESP32: [13]]
+  - [JETSON: [1], W_USB_ESP: [2], ESP32: [1]]
+  - [JETSON: [2], W_USB_N: [1], ESP32N: [1]]
+  - [JETSON: [2], W_USB_N: [2], ESP32N: [2]]
+  # Ojo izquierdo
+  -
+    - ESP32: [2, 1, 4, 5, 6, 7, 8, 2]
+    - W_TFT_L: [1, 2, 3, 4, 5, 6, 7, 8]
+    - TFT_L: [1, 2, 3, 4, 5, 6, 7, 8]
+  # Ojo derecho
+  -
+    - ESP32: [2, 1, 4, 5, 6, 7, 9, 2]
+    - W_TFT_R: [1, 2, 3, 4, 5, 6, 7, 8]
+    - TFT_R: [1, 2, 3, 4, 5, 6, 7, 8]
+  # IMU
+  -
+    - ESP32: [2, 1, 11, 10]
+    - W_I2C: [1, 2, 3, 4]
+    - IMU: [1, 2, 3, 4]
+  # LEDs
+  -
+    - ESP32: [12, 1, 2]
+    - W_LED: [1, 2, 3]
+    - LEDS: [1, 2, 3]
+  # Servos: senal desde el ESP32 cuello, potencia desde el regulador (GND comun)
+  -
+    - ESP32N: [3]
+    - W_PAN: [1]
+    - SERVO_PAN: [1]
+  -
+    - PWR: [3, 4]
+    - W_PAN: [2, 3]
+    - SERVO_PAN: [2, 3]
+  -
+    - ESP32N: [4]
+    - W_TILT: [1]
+    - SERVO_TILT: [1]
+  -
+    - PWR2: [3, 4]
+    - W_TILT: [2, 3]
+    - SERVO_TILT: [2, 3]
+  # Masa comun regulador - ESP32 cuello
+  -
+    - PWR: [4]
+    - W_GND: [1]
+    - ESP32N: [2]
+  # Hoverboard derecha (UART2: GPIO16 RX <- PB6, GPIO17 TX -> PB7)
+  -
+    - ESP32N: [6, 5, 2]
+    - W_HOVER_R: [1, 2, 3]
+    - HOVER_R: [2, 1, 3]
+  # Hoverboard izquierda (UART1: GPIO19 RX <- PB6, GPIO21 TX -> PB7)
+  -
+    - ESP32N: [12, 11, 2]
+    - W_HOVER_L: [1, 2, 3]
+    - HOVER_L: [2, 1, 3]
+  # Ultrasonido (VCC desde 5V del USB)
+  -
+    - ESP32N: [10, 7, 8, 2]
+    - W_SONAR: [1, 2, 3, 4]
+    - SONAR: [1, 2, 3, 4]
+  # Paro fisico
+  -
+    - ESP32N: [9, 2]
+    - W_ESTOP: [1, 2]
+    - ESTOP: [1, 2]
+  # Bateria -> regulador
+  -
+    - BAT: [1, 2]
+    - W_PWR_IN: [1, 2]
+    - SZ: [1, 2]
+  -
+    - SZ: [3, 4]
+    - W_12V: [1, 2]
+    - PWR: [1, 2]
+  -
+    - SZ: [3, 4]
+    - W_12V2: [1, 2]
+    - PWR2: [1, 2]
