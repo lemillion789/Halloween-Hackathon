@@ -24,7 +24,11 @@ FLANGE_Z = 28.0      # fondo del cuerpo -> cara inferior de las orejas
 FLANGE_L = 54.5      # largo total con orejas
 EAR_HOLE_DX = 49.5   # separacion de agujeros a lo largo
 EAR_HOLE_DY = 10.0   # separacion de agujeros a lo ancho
-EAR_PILOT_D = 3.3    # 3.3 = M4 autorroscante; 2.5 = M3 autorroscante
+EAR_SCREW_D = 3.4    # tornillo M3 (pasa por el agujero de la oreja y por la ranura) + tuerca atrapada
+EAR_SLOT_TOL = 1.5   # las ranuras permiten +-1.5 mm de error en la separacion de agujeros (a lo largo)
+NUT_AF = 5.9         # tuerca M3 entre caras (5.5) + holgura
+NUT_T = 2.7          # grosor de la tuerca M3 (2.4) + holgura
+NUT_DEPTH = 2.0      # piel de plastico entre la oreja y la tuerca
 FIT = 0.5            # holgura por lado del hueco del servo
 
 # --- horn redondo (el disco que trae el servo) ---
@@ -85,8 +89,17 @@ def make_base():
     pocket = (cq.Workplane("XY").box(SERVO_L + 2 * FIT, SERVO_W + 2 * FIT, Z_FLANGE, centered=(True, True, False))
               .translate((BODY_CX, 0, FOOT_T)))
     ears = [(BODY_CX + sx * EAR_HOLE_DX / 2, sy * EAR_HOLE_DY / 2) for sx in (-1, 1) for sy in (-1, 1)]
-    pilots = (cq.Workplane("XY", origin=(0, 0, Z_FLANGE - 15)).pushPoints(ears)
-              .circle(EAR_PILOT_D / 2).extrude(15))
+    # ranuras pasantes (tornillo M3) + ranura lateral para deslizar la tuerca desde el extremo del bloque
+    pilots = None
+    for (ex, ey) in ears:
+        sx = 1 if ex > BODY_CX else -1
+        slot = (cq.Workplane("XY").box(EAR_SCREW_D + 2 * EAR_SLOT_TOL, EAR_SCREW_D, 15, centered=(True, True, False))
+                .translate((ex, ey, Z_FLANGE - 15)))
+        x_in = ex - sx * (NUT_AF / 2 + EAR_SLOT_TOL)
+        x_out = BODY_CX + sx * (blk_l / 2 + 1)
+        nut = (cq.Workplane("XY").box(abs(x_out - x_in), NUT_AF, NUT_T, centered=False)
+               .translate((min(x_in, x_out), ey - NUT_AF / 2, Z_FLANGE - NUT_DEPTH - NUT_T)))
+        pilots = slot.union(nut) if pilots is None else pilots.union(slot).union(nut)
 
     # anillo guia exterior
     ring = (cq.Workplane("XY").circle(GUIDE_OD / 2).circle(GUIDE_OD / 2 - GUIDE_T)
