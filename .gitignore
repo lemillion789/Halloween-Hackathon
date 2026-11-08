@@ -18,5 +18,4 @@ vision/*.wav
 # entorno de schematics, builds de arduino-cli del hoverboard y el clon del firmware (repo aparte con .git propio)
 schematics/.venv/
 Hoverboard/*/build/
-Hoverboard/firmware_src/*
-!Hoverboard/firmware_src/*.bin
+Hoverboard/firmware_src/
