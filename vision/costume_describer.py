@@ -21,6 +21,8 @@ import time
 
 import cv2
 
+from joycon import JoyCon
+
 DEFAULT_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"  # Llama Vision no se puede usar en la UE
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1"
 MAX_SIDE = 640  # se reduce la imagen antes de mandarla: mas rapido y casi igual de preciso
@@ -119,7 +121,7 @@ def nvidia_client():
     from openai import OpenAI
 
     if _nvidia is None:
-        _nvidia = OpenAI(base_url=NVIDIA_URL, api_key=os.environ["NVIDIA_API_KEY"], timeout=30, max_retries=1)
+        _nvidia = OpenAI(base_url=NVIDIA_URL, api_key=os.environ["NVIDIA_API_KEY"], timeout=45, max_retries=0)  # los reintentos los hace describe_hedged
     return _nvidia
 
 
@@ -175,12 +177,49 @@ def describe(image_bgr, model=DEFAULT_MODEL, retry_empty=True):
     return result, time.perf_counter() - t0
 
 
+def hedged(call, hedge_after=15.0, max_wait=60.0, max_attempts=3, label="api"):
+    """Ejecuta call() y, si no hay respuesta en `hedge_after` s (o falla), lanza otro intento en paralelo sin
+    cancelar los anteriores; devuelve el resultado del primero que termine bien. El endpoint gratis a veces deja
+    peticiones colgadas. Lanza la ultima excepcion si todos fallan o pasan `max_wait` s."""
+    from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+
+    ex = ThreadPoolExecutor(max_attempts)
+    t0 = time.perf_counter()
+    futs, launched, last_err = [ex.submit(call)], 1, None
+    try:
+        while True:
+            done, _ = wait(futs, timeout=hedge_after, return_when=FIRST_COMPLETED)
+            for f in done:
+                try:
+                    return f.result()
+                except Exception as e:
+                    last_err = e
+            futs = [f for f in futs if not f.done()]
+            elapsed = time.perf_counter() - t0
+            if elapsed >= max_wait or (not futs and launched >= max_attempts):
+                raise last_err or TimeoutError(f"sin respuesta en {max_wait:.0f} s")
+            if launched < max_attempts:
+                launched += 1
+                print(f"[{label}] sin respuesta valida en {elapsed:.0f} s, intento {launched} en paralelo", flush=True)
+                futs.append(ex.submit(call))
+    finally:
+        ex.shutdown(wait=False)
+
+
+def describe_hedged(image_bgr, model=DEFAULT_MODEL, **kw):
+    """describe() con intentos en paralelo si la API tarda o se cuelga. Devuelve ({"people": [...]}, segundos)."""
+    t0 = time.perf_counter()
+    result = hedged(lambda: describe(image_bgr, model)[0], **{"hedge_after": 15.0, "max_wait": 75.0, **kw})
+    return result, time.perf_counter() - t0
+
+
 def run_camera(index, model):
     # DirectShow solo existe en Windows; en Linux (V4L2) se usa el backend por defecto
     cap = cv2.VideoCapture(index, cv2.CAP_DSHOW) if os.name == "nt" else cv2.VideoCapture(index)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    state = {"text": "ESPACIO = describir, Q = salir", "busy": False}
+    joy = JoyCon()
+    state = {"text": "ESPACIO / boton A = describir, Q = salir", "busy": False}
 
     def worker(frame):
         try:
@@ -203,9 +242,10 @@ def run_camera(index, model):
         cv2.putText(view, text[:90], (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         cv2.imshow("costume_describer", view)
         key = cv2.waitKey(1) & 0xFF
+        joy_a = joy.pressed()   # boton A del Joy-Con R
         if key == ord("q"):
             break
-        if key == ord(" ") and not state["busy"]:
+        if (key == ord(" ") or joy_a) and not state["busy"]:
             state["busy"] = True
             threading.Thread(target=worker, args=(frame.copy(),), daemon=True).start()
     cap.release()

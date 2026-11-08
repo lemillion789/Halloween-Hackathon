@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 import cv2
 from ultralytics import YOLO
 
-from costume_describer import DEFAULT_MODEL, describe
+from costume_describer import DEFAULT_MODEL, describe_hedged
 from roulette import Roulette
 from skull_lines import filler, write_line
 from tts import Speaker
@@ -55,7 +55,7 @@ class CostumeTracker:
 
     def _job(self, tid, crop):
         print(f"#{tid}: enviando recorte {crop.shape[1]}x{crop.shape[0]} a {self.model}...", flush=True)
-        result, dt = describe(crop, self.model)
+        result, dt = describe_hedged(crop, self.model)
         people = result.get("people", [])
         person = people[0] if people else NO_COSTUME  # sin respuesta tras el reintento = no se pudo identificar
         speech = write_line(person, self.model) if self.speaker else None

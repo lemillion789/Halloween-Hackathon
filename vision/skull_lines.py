@@ -7,7 +7,7 @@
 import random
 import re
 
-from costume_describer import DEFAULT_MODEL, nvidia_client
+from costume_describer import DEFAULT_MODEL, hedged, nvidia_client
 from tts import spooky_line
 
 FILLERS = [
@@ -27,11 +27,12 @@ NO_COSTUME_FALLBACK = [
 
 PERSONA = (
     "You are a stand-up comedian trapped in an animatronic Halloween skull: dry British humor, theatrical, "
-    "sarcastic and spooky, talking to a guest at a party. Say ONE spoken line (max 28 words), in English, "
+    "sarcastic and spooky, talking to a guest at a party. Say ONE spoken line (max 22 words), in English, "
     "with a real punchline. Be funny, not just creepy: riff on SPECIFIC details of the costume (props, colors, "
     "accessories, effort), use puns, absurd comparisons, or deadpan exaggeration, and sometimes joke about "
     "being a skeleton (no skin, no brain, no lunch). Never gory: no violence, weapons, death threats, and no "
-    "insults about the guest's body, age, gender or identity; tease the costume, never the person. "
+    "insults about the guest's body, age, gender or identity. Never mention the guest's weight, shape, fitness, "
+    "face, hair, skin or looks: tease the costume only, never the person. "
     "Do not copy these examples, they only show the tone: "
     "'Batman? Bold of you to sit down. I thought you only appeared when someone shined a light at a cloud.' / "
     "'A pirate, how brave. Tell me, do you also keep your treasure map under the couch cushions?' / "
@@ -61,6 +62,27 @@ MORE_WAIT = [
     "Almost there. Try to look scarier, the camera is watching.",
     "Still thinking... my brain is on vacation, but my jaw is on overtime.",
     "Do not worry, I only judge a little. Okay, a lot.",
+    "Patience is a virtue. I have had two hundred years of practice.",
+    "Loading your destiny... please do not turn off your soul.",
+    "This is taking longer than my last funeral.",
+    "Meanwhile, please enjoy this awkward silence. Oh wait, I am talking.",
+    "Somewhere a server is sweating. I can relate. Well, I would, if I had sweat.",
+    "Nobody move. The machine is thinking. It has more brain than me.",
+    "I am told the internet is slow today. In my day, ghosts were faster.",
+    "Quick question while we wait: who here is most afraid of me? Do not answer.",
+]
+
+
+# Reglas de la casa, dichas al principio de la espera: el reto del disfraz mas terrorifico y el de la ruleta
+SHOT_RULES = [
+    "House rules, mortals. The most terrifying costume in this room takes a shot. I am the judge, and I am very hard to scare.",
+    "Listen closely. Whoever wears the scariest costume has to take a shot. Yes, even if you are the Joker.",
+    "A challenge for the brave. The most terrifying costume takes a shot. Choose your fear wisely.",
+]
+GLASS_RULES = [
+    "And at the end, the wheel of doom picks one soul, and that soul drinks their whole glass. All of it. No sipping.",
+    "The wheel will choose a victim, and the victim finishes their entire drink. The skull is watching.",
+    "Final rule: whoever the wheel chooses drinks the whole glass. Bottoms up, or the dead will talk about you.",
 ]
 
 
@@ -72,7 +94,16 @@ def waiting_lines(n):
     first = random.choice(FIRST_WAIT).format(who=who, Who=who.capitalize())
     more = MORE_WAIT[:]
     random.shuffle(more)
-    return [first] + more
+    return [first, random.choice(SHOT_RULES), random.choice(GLASS_RULES)] + more
+
+
+def all_waiting_lines(max_people=6):
+    """Todas las frases de espera posibles (con conteo y de relleno) para pre-sintetizarlas."""
+    lines = list(MORE_WAIT) + SHOT_RULES + GLASS_RULES
+    for n in range(1, max_people + 1):
+        who = "one soul" if n == 1 else f"{NUMBERS[n]} souls"
+        lines += [t.format(who=who, Who=who.capitalize()) for t in FIRST_WAIT]
+    return lines
 
 
 def is_no_costume(person):
@@ -91,7 +122,15 @@ def tidy(text):
     return re.sub(r'^["\'\s]+|["\'\s]+$', "", text)
 
 
+# El prompt lo prohibe, pero el modelo a veces se pasa de la raya: estas frases se descartan (el concurso prohibe
+# contenido ofensivo).
+BANNED = re.compile(r"\b(fat|ugly|stupid|idiot|dumb|skinny|chubby|obese|overweight|out of shape|weight|loser|"
+                    r"pathetic|worthless|retard\w*|slut\w*|whore|gay|nazi\w*|rape\w*|kill\w*|suicide)\b", re.I)
+
 FORMAT = " Reply with the line wrapped in <line></line> tags and nothing else."
+NAME_FORMAT = (" First give the guest a funny 1-3 word spooky nickname based on the costume (like 'the hooded one' "
+               "or 'the web slinger') inside <name></name> tags, then the line inside <line></line> tags. "
+               "Nothing else.")
 
 
 def extract_line(raw):
@@ -101,28 +140,55 @@ def extract_line(raw):
     return tidy(found[-1]) if found else ""
 
 
-def _generate(task, model, attempts=2):
-    """Pide una frase a Nemotron. Devuelve None si falla tras reintentar (sin internet, 429, vacia, fuera de rango)."""
-    for attempt in range(attempts):
-        try:
-            resp = nvidia_client().with_options(timeout=20, max_retries=0).chat.completions.create(
-                model=model,
-                messages=[{"role": "system", "content": PERSONA}, {"role": "user", "content": task + FORMAT}],
-                temperature=1.0,
-                max_tokens=1000,
-                **({"extra_body": {"reasoning_budget": 128}} if "nemotron" in model else {}),
-            )
-            text = extract_line(resp.choices[0].message.content)
-            if 3 <= len(text.split()) <= 45:
-                return text
-            print(f"[frase] respuesta descartada ({resp.choices[0].finish_reason}, intento {attempt + 1}): {text!r}")
-        except Exception as e:
-            print(f"[frase] error {type(e).__name__}: {e}")
-    return None
+def extract_name(raw):
+    """Apodo dentro de <name>...</name>: 1 a 4 palabras, sin el articulo inicial. Cadena vacia si no hay."""
+    found = re.findall(r"<name>(.*?)</name>", raw or "", re.S | re.I)
+    words = re.sub(r"^(the|a|an)\s+", "", tidy(found[-1]).strip(' .!"\'').lower()).split() if found else []
+    return " ".join(words) if 1 <= len(words) <= 4 else ""
+
+
+def _generate(task, model, name=False, max_wait=20.0):
+    """Pide una frase a Nemotron. Intentos en paralelo si tarda (hedge a los 8 s); None si no hay una valida a tiempo."""
+    def attempt():
+        resp = nvidia_client().with_options(timeout=max_wait, max_retries=0).chat.completions.create(
+            model=model,
+            messages=[{"role": "system", "content": PERSONA}, {"role": "user", "content": task + (NAME_FORMAT if name else FORMAT)}],
+            temperature=1.0,
+            max_tokens=1000,
+            **({"extra_body": {"reasoning_budget": 128}} if "nemotron" in model else {}),
+        )
+        raw = resp.choices[0].message.content
+        text = extract_line(raw)
+        if not 3 <= len(text.split()) <= 34:
+            raise ValueError(f"respuesta descartada ({resp.choices[0].finish_reason}): {text!r}")
+        if BANNED.search(text):
+            raise ValueError(f"respuesta descartada por lenguaje no permitido: {text!r}")
+        return (extract_name(raw), text) if name else text
+
+    try:
+        return hedged(attempt, hedge_after=8.0, max_wait=max_wait, max_attempts=3, label="frase")
+    except Exception as e:
+        print(f"[frase] sin frase valida ({type(e).__name__}: {e}); se usa una plantilla")
+        return None
 
 
 def write_line(person, model=DEFAULT_MODEL):
     """Una frase hablada para un invitado; plantillas de respaldo si la API falla."""
+    return write_line_named(person, model)[1]
+
+
+TITLES = ["Victim", "Subject", "Specimen", "Soul", "Contestant", "Guest"]
+
+
+def person_intro(idx, nickname, character):
+    """Presentacion antes de la descripcion: 'Victim number one: the hooded one.' (idx empieza en 0)."""
+    n = NUMBERS[idx + 1] if idx + 1 < len(NUMBERS) else str(idx + 1)
+    who = f"the {nickname}" if nickname else character  # sin apodo se usa el nombre del personaje tal cual
+    return f"{TITLES[idx % len(TITLES)]} number {n}: {who}."
+
+
+def write_line_named(person, model=DEFAULT_MODEL):
+    """(apodo, frase) para un invitado; plantillas de respaldo (sin apodo) si la API falla."""
     nothing = is_no_costume(person)
     if nothing:
         task = ("The guest is wearing no costume, or you cannot tell what they are. Tease them lightly and "
@@ -130,7 +196,10 @@ def write_line(person, model=DEFAULT_MODEL):
     else:
         task = (f"The guest is dressed as {person['character']} ({person.get('description', '')}). "
                 f"Roast the costume with one funny line that mentions a specific detail of it.")
-    return _generate(task, model) or (random.choice(NO_COSTUME_FALLBACK) if nothing else spooky_line(person))
+    got = _generate(task, model, name=True)
+    if got:
+        return got
+    return "", (random.choice(NO_COSTUME_FALLBACK) if nothing else spooky_line(person))
 
 
 ROULETTE_INTROS = [
@@ -149,10 +218,18 @@ def roulette_intro():
     return random.choice(ROULETTE_INTROS)
 
 
-def write_roulette_line(person, dare, model=DEFAULT_MODEL):
+def _display(person):
+    """Nombre del personaje para una plantilla: 'pirate' -> 'Pirate' (los que ya llevan mayusculas se respetan)."""
+    if is_no_costume(person):
+        return "stranger"
+    name = person.get("character", "stranger")
+    return name if any(ch.isupper() for ch in name) else name.title()
+
+
+def write_roulette_line(person, dare, model=DEFAULT_MODEL, max_wait=30.0):
     """Anuncio del elegido de la ruleta: gracioso, con su disfraz y el reto (dare)."""
     who = "a guest" if is_no_costume(person) else f"the guest dressed as {person['character']}"
     task = (f"A roulette just picked {who} out of several guests. Announce with theatrical drama that "
-            f"they are the chosen one and command them to {dare}. Make it funny; mention the costume if there is one.")
-    return _generate(task, model) or random.choice(ROULETTE_FALLBACK).format(
-        c=person.get("character", "stranger") if not is_no_costume(person) else "stranger", dare=dare[:1].upper() + dare[1:])
+            f"they are the chosen one and command them to do this dare: '{dare}'. Make it funny; mention the costume if there is one.")
+    return _generate(task, model, max_wait=max_wait) or random.choice(ROULETTE_FALLBACK).format(
+        c=_display(person), dare=dare[:1].upper() + dare[1:])

@@ -117,3 +117,20 @@ Al salir el elegido de la ruleta suena un golpe de terror generado (`music.make_
 `--music test_sounds/sound1.mp3` usa una pista tuya: el juego recorta el silencio del principio y del final y funde el final con el inicio para que el loop no tenga hueco. Revisa la licencia de lo que descargues (atribucion, uso comercial) antes de subirlo al repo o usarlo en el video del concurso.
 
 Musica por defecto: `test_sounds/sound1.mp3` si existe (no esta en el repo: licencia sin confirmar); si no, el loop generado. `--music generated` fuerza el generado.
+
+### Voz sincronizada y presentacion de personajes
+
+- El subtitulo aparece cuando el audio realmente empieza (`Speaker.say(texto, on_start)`), no al encolar la frase.
+- `game.py` no deja tomar la foto hasta que la voz haya cargado (`Speaker.ready`, ~7 s): antes la primera frase quedaba detras de la carga del modelo.
+- `Speaker.prewarm` sintetiza en los ratos libres las frases fijas (esperas, intros) y cada frase en cuanto Nemotron la escribe, asi suenan casi sin retraso.
+- Antes de describir a cada persona la calavera dice su numero y un apodo gracioso que Nemotron inventa en la misma llamada: "Victim number one: the hooded one." (los titulos rotan: Victim, Subject, Specimen, Soul, Contestant, Guest). Sin apodo usa el nombre del personaje.
+
+### Pantalla minimalista
+
+En `game.py` el texto solo aparece cuando la calavera dice algo (subtitulos sincronizados con el audio). Al identificar a alguien la tarjeta ya no muestra nombre ni descripcion: cae un sello gracioso (`STAMPS` en game.py: DONE!, FOUND!, WANTED 500 SEK, BUSTED!...). La rueda y el elegido se identifican por numero (#1, #2...), que es el que la calavera dice al presentarlos. Las frases de espera van mas lentas (`WAIT_SPEED`) y con una pausa de `WAIT_PAUSE` s entre una y otra.
+
+### Espera de la API (`hedged`)
+
+El endpoint gratis a veces tarda o deja peticiones colgadas. `costume_describer.hedged()` lanza otro intento en paralelo si no hay respuesta valida a los `hedge_after` s (15 s para el VLM, 8 s para las frases) y se queda con el primero que termine bien; el plazo de las frases es corto (20 s; 14 s el anuncio de la ruleta) y si vence se usa una plantilla. En `game.py` la calavera empieza a presentar a la primera persona en cuanto esta lista (no espera a todas) y rellena con frases de espera si la siguiente tarda. Al cerrar se usa `os._exit` para no esperar a hilos con peticiones colgadas.
+
+Velocidades de voz en `game.py`: frases de espera `WAIT_SPEED` = 0.74 (lentas, con pausa), presentacion de cada persona `PERSON_SPEED` = 0.95 (un poco mas rapida), el resto (ruleta, anuncio) la voz normal de `tts.py` (0.85). Las tarjetas muestran el nombre del disfraz y un sello gracioso; la descripcion solo la dice la calavera.

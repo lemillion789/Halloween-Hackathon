@@ -48,27 +48,38 @@ def _effects(pitch):
 
 
 class Speaker:
-    """Cola de frases en un hilo: no bloquea el video y las frases no se pisan."""
+    """Cola de frases en un hilo: no bloquea el video y las frases no se pisan.
+
+    - ready: se activa cuando el modelo ya cargo (~7 s); antes de eso una frase tardaria en sonar.
+    - prewarm(textos): sintetiza frases en los ratos libres y las guarda; say() las reproduce al instante.
+    - say(texto, on_start): on_start se llama justo cuando el audio empieza (para sincronizar subtitulos).
+    """
 
     def __init__(self, voice=VOICE, speed=SPEED, pitch=PITCH, effects=True):
         self.voice, self.speed = voice, speed
         self.fx = _effects(pitch) if effects else None
         self.q = queue.Queue()
         self.pipeline = None
+        self.ready = threading.Event()
+        self.cache, self.todo = {}, []
         threading.Thread(target=self._run, daemon=True).start()
 
-    def synth(self, text):
+    def synth(self, text, speed=None):
         if self.pipeline is None:
             from kokoro import KPipeline
             self.pipeline = KPipeline(lang_code=self.voice[0], repo_id="hexgrad/Kokoro-82M")
-        parts = [np.asarray(audio, dtype=np.float32) for _, _, audio in self.pipeline(text, voice=self.voice, speed=self.speed)]
+        parts = [np.asarray(audio, dtype=np.float32) for _, _, audio in self.pipeline(text, voice=self.voice, speed=speed or self.speed)]
         audio = np.concatenate(parts + [np.zeros(int(SAMPLE_RATE * 0.8), dtype=np.float32)])  # cola para el eco
         if self.fx is not None:
             audio = self.fx(audio[None, :], SAMPLE_RATE)[0]
         return audio
 
-    def say(self, text):
-        self.q.put(text)
+    def prewarm(self, texts, speed=None):
+        """Sintetiza en los ratos libres; speed debe ser la misma con la que luego se haga say()."""
+        self.todo.extend((t, speed) for t in texts if (t, speed) not in self.cache and (t, speed) not in self.todo)
+
+    def say(self, text, on_start=None, speed=None):
+        self.q.put((text, on_start, speed))
 
     def wait(self):
         self.q.join()
@@ -79,11 +90,26 @@ class Speaker:
     def _run(self):
         import sounddevice as sd
         self.synth("Hello.")  # carga y calienta el modelo al arrancar (~7 s), no en la primera frase
+        self.ready.set()
         while True:
-            text = self.q.get()
+            try:
+                text, on_start, speed = self.q.get(timeout=0.05)
+            except queue.Empty:
+                if self.todo:  # sin frases pendientes: se aprovecha para sintetizar las que se van a necesitar
+                    nxt = self.todo.pop(0)
+                    try:
+                        self.cache[nxt] = self.synth(*nxt)
+                    except Exception as e:
+                        print(f"[voz] error pre-sintetizando: {type(e).__name__}: {e}")
+                continue
             try:
                 print(f'[voz] "{text}"', flush=True)
-                sd.play(self.synth(text), SAMPLE_RATE)
+                audio = self.cache.get((text, speed))
+                if audio is None:
+                    audio = self.synth(text, speed)
+                if on_start:
+                    on_start()
+                sd.play(audio, SAMPLE_RATE)
                 sd.wait()
             except Exception as e:  # sin audio, modelo sin bajar, etc.: que no caiga el programa
                 print(f"[voz] error: {type(e).__name__}: {e}")
