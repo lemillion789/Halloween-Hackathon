@@ -30,8 +30,8 @@ connectors:
     notes: 3 LEDs, 100 ohm cada uno
   ESP32N:
     type: ESP32-WROOM (cuello/hoverboard, CP2102)
-    pinlabels: [USB, GND, G13 PAN, G14 TILT, G16 RX2, G17 TX2, G25 TRIG, G26 ECHO, G27 ESTOP, 5V/VIN, G19 RX1, G21 TX1]
-    pins: [1,2,3,4,5,6,7,8,9,10,11,12]
+    pinlabels: [USB, GND, G13 PAN, G14 TILT, G16 RX2, G17 TX2, G25 TRIG, G26 ECHO, G27 ESTOP, 5V/VIN, G19 RX1, G21 TX1, G32 IN1, G33 IN2]
+    pins: [1,2,3,4,5,6,7,8,9,10,11,12,13,14]
   PWR:
     type: Buck XL4015 12V a 5V (servo giro)
     pinlabels: [IN+, IN-, OUT+, OUT-]
@@ -63,14 +63,19 @@ connectors:
     notes: 470-1000 uF entre V+ y GND
   HOVER_R:
     type: Placa DERECHA hoverboard (Gen2.x, SLAVE_ID 0)
-    pinlabels: [PB6 TX, PB7 RX, GND]
-    pins: [1,2,3]
+    pinlabels: [PB6 TX, PB7 RX, GND, BOTON A, BOTON B]
+    pins: [1,2,3,4,5]
     notes: Conector USART de la placa, UART2 del ESP32. 19200, 3.3 V. Arranca uniendo 2 pines del boton
   HOVER_L:
     type: Placa IZQUIERDA hoverboard (Gen2.x, SLAVE_ID 1)
-    pinlabels: [PB6 TX, PB7 RX, GND]
-    pins: [1,2,3]
+    pinlabels: [PB6 TX, PB7 RX, GND, BOTON A, BOTON B]
+    pins: [1,2,3,4,5]
     notes: Conector USART de la placa, UART1 del ESP32. 19200, 3.3 V. Sin cable maestro-esclavo
+  RELAY:
+    type: Modulo 4 reles 5 V SRD-05VDC-SL-C (activo en BAJO)
+    pinlabels: [IN1, IN2, VCC, GND, K1 COM, K1 NO, K2 COM, K2 NO]
+    pins: [1,2,3,4,5,6,7,8]
+    notes: Un rele por placa, pulso de 1 s al boton. Contactos solo a mA
   SONAR:
     type: HC-SR04
     pinlabels: [VCC, TRIG, ECHO, GND]
@@ -150,6 +155,18 @@ cables:
     gauge: 0.75 mm2
     colors: [BK]
     wirecount: 1
+  W_RELAY:
+    gauge: 0.25 mm2
+    colors: [WH, YE, RD, BK]
+    wirecount: 4
+  W_BTN_R:
+    gauge: 0.25 mm2
+    colors: [WH, BK]
+    wirecount: 2
+  W_BTN_L:
+    gauge: 0.25 mm2
+    colors: [WH, BK]
+    wirecount: 2
 
 connections:
   - [JETSON: [1], W_USB_ESP: [1], ESP32: [13]]
@@ -231,3 +248,17 @@ connections:
     - SZ: [3, 4]
     - W_12V2: [1, 2]
     - PWR2: [1, 2]
+  # Reles: GPIO32 -> IN1 (derecha), GPIO33 -> IN2 (izquierda)
+  -
+    - ESP32N: [13, 14, 10, 2]
+    - W_RELAY: [1, 2, 3, 4]
+    - RELAY: [1, 2, 3, 4]
+  # Contactos de rele a los 2 pines del boton de cada placa
+  -
+    - RELAY: [5, 6]
+    - W_BTN_R: [1, 2]
+    - HOVER_R: [4, 5]
+  -
+    - RELAY: [7, 8]
+    - W_BTN_L: [1, 2]
+    - HOVER_L: [4, 5]

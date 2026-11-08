@@ -128,6 +128,13 @@ g.text(xa, 396, "Las dos a 36 V en paralelo,\nSIN cable maestro-esclavo", 11, "m
 g.text(xa, 432, "UART propio por placa -> ESP32\nArranque: unir 2 pines del boton", 11, "middle", BLU, True)
 g.line([(xa, 460), (xa, GY)], BLK); g.dot(xa, GY)
 g.text(xa, 500, "Sin Jetson ni servos aqui: si se pulsa\nel paro, estos siguen vivos", 12, c=GRY)
+g.box(150, 560, 250, 130, "Modulo 4 reles 5 V", "SRD-05VDC, activo en BAJO", "#f3e5f5", "#6a1b9a")
+g.text(165, 620, "IN1 = GPIO32 -> placa DERECHA", 11, "start", "#6a1b9a", True)
+g.text(165, 638, "IN2 = GPIO33 -> placa IZQUIERDA", 11, "start", "#6a1b9a", True)
+g.text(165, 656, "COM y NO a los 2 pines del boton", 11, "start", GRY)
+g.text(165, 672, "(un rele por placa; pulso de 1 s)", 11, "start", GRY)
+g.line([(300, 560), (300, 415), (320, 415)], "#8e24aa", 3, "7 5")
+g.text(294, 500, "pulso\nal boton", 11, "end", "#6a1b9a", True)
 
 # Rama B: SZDULI 12 V -> servos, Jetson, hub
 xb = 800
@@ -203,7 +210,7 @@ n.text(20, 34, "ESP32-WROOM del cuello - senales (cuello, 2 placas hoverboard, u
 n.text(20, 58, "Pines GPIO evitan los de arranque. Hoverboard: 2 placas Gen2.x (layout 2.2.3), CADA UNA con su UART (REMOTE_UARTBUS, 19200 baudios): derecha UART2, izquierda UART1.", 13, "start", GRY)
 ex, ey, ew, eh = 560, 110, 280, 770
 n.box(ex, ey, ew, eh, "ESP32-WROOM", "modulo cuello/hoverboard", "#e3f2fd", "#1565c0")
-pins_l = [("USB (a hub/Jetson)", 220), ("GND", 600), ("5V / VIN", 700)]
+pins_l = [("USB (a hub/Jetson)", 220), ("GPIO32 (IN1)", 330), ("GPIO33 (IN2)", 390), ("GND", 600), ("5V / VIN", 700)]
 for t, y in pins_l:
     n.line([(ex - 40, y), (ex, y)]); n.text(ex + 12, y + 5, t, 13, "start")
 pins_r = [("GPIO13", 190, ORG), ("GPIO14", 270, ORG), ("GPIO16 (RX2)", 350, BLU), ("GPIO17 (TX2)", 400, BLU),
@@ -215,6 +222,11 @@ for t, y, c in pins_r:
 # izquierda: USB y GND/5V
 n.box(60, 185, 240, 70, "Hub USB -> Jetson", "cable USB (datos + 5 V)", "#e8f5e9", "#2e7d32")
 n.line([(300, 220), (ex - 40, 220)], GRN, 4)
+n.box(40, 290, 260, 200, "Modulo 4 reles 5 V", "SRD-05VDC-SL-C, activo en BAJO", "#f3e5f5", "#6a1b9a")
+n.text(55, 350, "IN1 <- GPIO32: rele 1 -> boton de la\nplaca DERECHA", 11, "start", "#6a1b9a", True)
+n.text(55, 392, "IN2 <- GPIO33: rele 2 -> boton de la\nplaca IZQUIERDA", 11, "start", "#6a1b9a", True)
+n.text(55, 438, "COM y NO a los 2 pines del conector\ndel boton de cada placa (pulso 1 s).\nVCC a 5 V (VIN), GND comun.", 11, "start", GRY)
+n.line([(300, 330), (ex - 40, 330)], "#8e24aa", 3); n.line([(300, 390), (ex - 40, 390)], "#8e24aa", 3)
 n.line([(ex - 40, 600), (320, 600)], BLK, 4); n.gnd(320, 600); n.text(310, 575, "GND comun\n(borne comun)", 12, "end", GRY)
 n.line([(ex - 40, 700), (330, 700)], RED, 4); n.text(320, 690, "5 V del USB\n(para el HC-SR04)", 12, "end", GRY)
 
@@ -235,7 +247,7 @@ n.line([(rx, 460), (rx + 200, 460)], BLU, 3); n.line([(rx, 510), (rx + 200, 510)
 n.box(rx + 200, 445, 250, 110, "Placa IZQUIERDA (ID 1)", "", "#fff8e1")
 n.text(rx + 215, 492, "PB6 (TX)", 12, "start", BLU, True); n.text(rx + 215, 542, "PB7 (RX)", 12, "start", BLU, True)
 n.text(rx + 100, 452, "GPIO19 <- PB6", 12, c=BLU, bold=True); n.text(rx + 100, 502, "GPIO21 -> PB7", 12, c=BLU, bold=True)
-n.text(rx + 200, 574, "Layout 2.2.3, USART0 PB6/PB7. GND comun obligatorio\ncon las 2 placas. Cada una responde a su SLAVE_ID (0 y 1).", 11, "start", GRY)
+n.text(rx + 200, 574, "Layout 2.2.3, USART0 PB6/PB7, GND comun obligatorio.\nSLAVE_ID 0 y 1. Su boton se pulsa con el rele (izquierda).", 11, "start", GRY)
 
 # ultrasonido con divisor
 n.line([(rx, 620), (rx + 150, 620)], ORG, 3)
@@ -380,6 +392,13 @@ for c, t in zip("DEFG", ["VCC", "TRIG", "ECHO", "GND"]): b.text(H(c, 16)[0], H(c
 for c, t in zip("LMN", ["GND", "V+", "SIG"]): b.text(H(c, 16)[0], H(c, 16)[1] - 13, t, 9, c="#263238", bold=True)
 for c, t in zip("PQR", ["SIG", "V+", "GND"]): b.text(H(c, 16)[0], H(c, 16)[1] - 13, t, 9, c="#263238", bold=True)
 for c, t in zip("HIJLMN", ["PB7", "PB6", "GND", "PB7", "PB6", "GND"]): b.text(H(c, 2)[0], H(c, 2)[1] - 13, t, 9, c="#263238", bold=True)
+# --- Reles (cabecera vertical a la derecha, W14-W17)
+for r_, t, col in [(14, "IN1", "#8e24aa"), (15, "IN2", "#8e24aa"), (16, "VCC", RED), (17, "GND", BLK)]:
+    pin("W", r_, col); b.text(H("W", r_)[0] + 14, H("W", r_)[1] + 4, t, 9, "start", "#263238", True)
+b.text(H("W", 13)[0] - 12, H("W", 13)[1] + 4, "RELES", 11, "start", "#6a1b9a", True)
+wire([("I", 13), ("I", 12), ("X", 12), ("X", 14), ("W", 14)], "#8e24aa")      # GPIO32 -> IN1
+wire([("J", 13), ("J", 11), ("V", 11), ("V", 15), ("W", 15)], "#8e24aa")      # GPIO33 -> IN2
+wire([("W", 17), ("W", 18)], BLK)
 # --- Masa
 wire([("D", 18), ("X", 18)], BLK, w=6)
 b.text(H("D", 18)[0] - 8, H("D", 18)[1] + 24, "Riel de masa (GND comun)", 12, "start", bold=True)
@@ -399,7 +418,7 @@ for c1, c2, nm in [("M", "L", "C1"), ("Q", "R", "C2")]:
 zy = Y0 + 17 * P + 60
 b.text(X0 - 20, zy - 8, "16 zonas planas para soldar (entradas de potencia). Asignacion sugerida:", 13, "start", bold=True)
 zones = [("Z1", "+5V buck GIRO", RED), ("Z2", "GND buck GIRO", BLK), ("Z3", "+5V buck CABECEO", RED), ("Z4", "GND buck CABECEO", BLK),
-         ("Z5", "GND masa comun\n(SZDULI OUT-)", BLK), ("Z6", "GND hoverboard", BLK), ("Z7", "libre", GRY), ("Z8", "libre", GRY)]
+         ("Z5", "GND masa comun\n(SZDULI OUT-)", BLK), ("Z6", "GND hoverboard", BLK), ("Z7", "+5V reles\n(de VIN, R13)", RED), ("Z8", "libre", GRY)]
 zones += [(f"Z{i}", "libre", GRY) for i in range(9, 17)]
 for i, (z, t, col) in enumerate(zones):
     x = X0 - 20 + (i % 8) * 128; y = zy + (i // 8) * 70
@@ -408,7 +427,7 @@ for i, (z, t, col) in enumerate(zones):
     b.text(x + 56, y + 36, t, 10, c=col)
 # leyenda
 ly = 60
-for i, (t, col) in enumerate([("+5 V servos", RED), ("GND", BLK), ("Senal", ORG), ("UART hoverboard", BLU)]):
+for i, (t, col) in enumerate([("+5 V servos", RED), ("GND", BLK), ("Senal", ORG), ("UART hoverboard", BLU), ("Rele IN1/IN2", "#8e24aa")]):
     b.line([(1180, 100 + i * 24), (1220, 100 + i * 24)], col, 4); b.text(1230, 104 + i * 24, t, 12, "start")
 # tabla de conexiones
 rows = [
@@ -421,22 +440,26 @@ rows = [
     ("GPIO25 (K13)", "Sonar TRIG (E16)"),
     ("GPIO26 (L13)", "Nodo del divisor R1/R2"),
     ("GPIO27 (M13)", "Paro, contacto a GND (T14)"),
+    ("GPIO32 (I13)", "Rele IN1 -> placa DERECHA (W14)"),
+    ("GPIO33 (J13)", "Rele IN2 -> placa IZQUIERDA (W15)"),
     ("VIN (R13)", "Sonar VCC (D16)"),
     ("GND (Q13, Q4)", "Riel de masa"),
 ]
 b.text(1180, 230, "Conexiones ESP32 -> destino", 13, "start", bold=True)
 for i, (a, d_) in enumerate(rows):
     b.text(1180, 254 + i * 20, f"{a}  ->  {d_}", 11, "start")
-b.text(1180, 600, "Cabeceras (fila 16): D-G sonar [VCC,TRIG,ECHO,GND];", 11, "start")
-b.text(1180, 618, "L-N servo cabeceo [GND,V+,SIG] (enchufar al reves);", 11, "start")
-b.text(1180, 636, "P-R servo giro [SIG,V+,GND]; T-U paro (fila 14);", 11, "start")
-b.text(1180, 654, "H-J placa izquierda y L-N derecha (fila 2): PB7, PB6, GND;", 11, "start")
-b.text(1180, 672, "el GND de cada placa va al GND superior del ESP32 (Q4).", 11, "start")
-b.text(1180, 690, "C1/C2 = 1000 uF entre V+ y GND.", 11, "start")
-b.text(1180, 490, "V+ de cada servo: de su buck (Z1 / Z3),", 11, "start", RED, True)
-b.text(1180, 508, "NO del ESP32. GND de bucks al riel.", 11, "start", RED, True)
-b.text(1180, 540, "Divisor: ECHO -> R1 1k -> nodo -> GPIO26;", 11, "start")
-b.text(1180, 558, "nodo -> R2 2k -> GND.", 11, "start")
+b.text(1180, 770, "Reles: W14 IN1, W15 IN2, W16 VCC (5 V, de Z7), W17 GND;", 11, "start")
+b.text(1180, 788, "COM/NO de cada rele al boton de su placa (cables aparte).", 11, "start")
+b.text(1180, 650, "Cabeceras (fila 16): D-G sonar [VCC,TRIG,ECHO,GND];", 11, "start")
+b.text(1180, 668, "L-N servo cabeceo [GND,V+,SIG] (enchufar al reves);", 11, "start")
+b.text(1180, 686, "P-R servo giro [SIG,V+,GND]; T-U paro (fila 14);", 11, "start")
+b.text(1180, 704, "H-J placa izquierda y L-N derecha (fila 2): PB7, PB6, GND;", 11, "start")
+b.text(1180, 722, "el GND de cada placa va al GND superior del ESP32 (Q4).", 11, "start")
+b.text(1180, 740, "C1/C2 = 1000 uF entre V+ y GND.", 11, "start")
+b.text(1180, 540, "V+ de cada servo: de su buck (Z1 / Z3),", 11, "start", RED, True)
+b.text(1180, 558, "NO del ESP32. GND de bucks al riel.", 11, "start", RED, True)
+b.text(1180, 590, "Divisor: ECHO -> R1 1k -> nodo -> GPIO26;", 11, "start")
+b.text(1180, 608, "nodo -> R2 2k -> GND.", 11, "start")
 b.save("board_layout.svg")
 
 
