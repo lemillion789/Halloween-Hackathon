@@ -17,8 +17,8 @@
 // Pines (ver README.md). SCK=18, MOSI=23 son los de VSPI por defecto.
 #define PIN_DC   16
 #define PIN_RST  4
-#define PIN_CS_L 5
-#define PIN_CS_R 17
+#define PIN_CS_L 17  // cableado fisico invertido: la pantalla del GPIO17 es el ojo izquierdo
+#define PIN_CS_R 5
 // IMU (MPU6050/6500/9250) por I2C en los pines por defecto del ESP32, libres respecto a las TFT.
 #define PIN_SDA  21
 #define PIN_SCL  22
@@ -44,7 +44,7 @@ const uint16_t C_PUPIL = 0x0000;
 enum Mood { NEUTRAL, ANGRY, HAPPY, SURPRISED, SLEEPY, SAD, SUSPICIOUS, EVIL, DEAD, POSSESSED, DIZZY, SCARED, MOOD_COUNT };
 const char *MOOD_NAMES[MOOD_COUNT] = {"neutral", "angry", "happy", "surprised", "sleepy", "sad",
                                       "suspicious", "evil", "dead", "possessed", "dizzy", "scared"};
-Mood mood = NEUTRAL;
+Mood mood = ANGRY;  // por defecto enojado
 
 float lookX = 0, lookY = 0;      // posicion actual
 float tgtX = 0, tgtY = 0;        // destino
@@ -307,7 +307,7 @@ void imuUpdate() {
 // ---- LEDs rojos interiores: PWM por LEDC, 5 kHz, 8 bits ----
 // Los efectos corren en su propia tarea cada 10 ms: el loop tarda ~50 ms por cuadro y el latido se veria a saltos.
 enum LedMode { LED_FIXED, LED_PULSE, LED_HEART };
-volatile LedMode ledMode = LED_FIXED;
+volatile LedMode ledMode = LED_HEART;  // por defecto latido de corazon
 volatile int ledBpm = 70;
 volatile uint32_t heartStart = 0;
 

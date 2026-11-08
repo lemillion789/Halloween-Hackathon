@@ -12,7 +12,7 @@ Los pines SPI van en paralelo a ambas pantallas; solo CS es distinto.
 | A0 / DC | GPIO16 | compartido |
 | RESET | GPIO4 | compartido |
 | LED / BL | 3V3 | retroiluminacion siempre encendida (o GPIO25 para PWM; GPIO21 ahora es SDA del IMU) |
-| CS | GPIO5 (ojo izq) / GPIO17 (ojo der) | uno por pantalla |
+| CS | GPIO17 (ojo izq) / GPIO5 (ojo der) | uno por pantalla |
 
 Si tu modulo lleva pin SD/TFT_CS de tarjeta SD, dejalo sin conectar.
 
