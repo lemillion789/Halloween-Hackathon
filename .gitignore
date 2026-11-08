@@ -14,3 +14,9 @@ vision/test_images/*_out.jpg
 vision/ruleta_elegido_*.jpg
 vision/test_sounds/
 vision/*.wav
+
+# entorno de schematics, builds de arduino-cli del hoverboard y el clon del firmware (repo aparte con .git propio)
+schematics/.venv/
+Hoverboard/*/build/
+Hoverboard/firmware_src/*
+!Hoverboard/firmware_src/*.bin
