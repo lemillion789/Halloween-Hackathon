@@ -25,6 +25,7 @@ lock = threading.Lock()
 log = deque(maxlen=200)   # (n, texto)
 log_n = 0
 imu = ""
+ofs = ""   # ultima respuesta "OFS lx ly rx ry" de los ojos
 
 
 def add_log(text):
@@ -34,7 +35,7 @@ def add_log(text):
 
 
 def reader(dev):
-    global imu
+    global imu, ofs
     while True:
         s = sers[dev]
         if s is None or not s.is_open:
@@ -48,6 +49,9 @@ def reader(dev):
         if line:
             if line.startswith("IMU"):
                 imu = line
+            elif "OFS " in line:
+                ofs = line[line.index("OFS "):]
+                add_log(f"< [{dev}] {line}")
             else:
                 add_log(f"< [{dev}] {line}")
 
@@ -79,7 +83,7 @@ def send(dev, line):
         if s is None or not s.is_open:
             raise RuntimeError(f"{dev}: sin conexion")
         s.write((line.strip() + "\n").encode())
-    if not line.startswith(("L ", "P ")):      # no llenar el log con mirada/giro continuos
+    if not line.startswith(("L ", "P ", "O L ", "O R ")):      # no llenar el log con mirada/giro continuos
         add_log(f"> [{dev}] {line}")
 
 
@@ -109,6 +113,12 @@ Ojos <select id=p_eyes></select> Cuello <select id=p_neck></select><button oncli
 <div><button onclick="look(0,0)">Centro</button> <button onclick="cmd('B')">Parpadear</button>
 <button id=demo onclick=demo()>Demo</button><p id=lk style=color:var(--mut)></p>
 <label><input type=checkbox id=ix> Invertir X</label><br><label><input type=checkbox id=iy> Invertir Y</label></div></div></div>
+<div class=card><h2>Centrado de ojos (pixeles)</h2>
+<p style="margin:0 0 10px;color:var(--mut);font-size:13px">Mueve cada ojo hasta que quede centrado en su cuenca. Los cambios se ven al instante; "Guardar" los deja en la flash del ESP32 (sobreviven al reinicio).</p>
+<div class=row style="align-items:flex-start;gap:24px" id=ofsbox></div>
+<div class=row style=margin-top:10px><button id=cal onclick=calib()>Modo calibracion (cruz)</button>
+<button onclick="cmd('O S')" style="border-color:var(--acc)">Guardar en ESP32</button><button onclick="cmd('O E')">Recargar guardado</button>
+<button onclick="cmd('O 0')">Poner a 0</button><code id=ofs></code></div></div>
 <div class=card><h2>Cuello (giro)</h2><div class=row>
 <input type=range id=neck min=45 max=135 value=90 style=width:300px oninput="neckGo(this.value)"><span id=nv>90</span>&deg;
 <button onclick="neckGo(90,1)">Centro</button><button id=sw onclick=sweep()>Barrido</button></div></div>
@@ -136,10 +146,25 @@ function look(x,y){$('dot').style.left=(112+x*112)+'px';$('dot').style.top=(112+
  const now=Date.now();if(now-last<50)return;last=now;cmd(`L ${(x*sx).toFixed(2)} ${(y*sy).toFixed(2)}`,1)}
 function padEvt(e){const r=$('pad').getBoundingClientRect();look(Math.max(-1,Math.min(1,(e.clientX-r.left)/r.width*2-1)),Math.max(-1,Math.min(1,(e.clientY-r.top)/r.height*2-1)))}
 let drag=false;$('pad').onpointerdown=e=>{drag=true;$('pad').setPointerCapture(e.pointerId);padEvt(e)};$('pad').onpointermove=e=>{if(drag)padEvt(e)};$('pad').onpointerup=()=>drag=false;
+const OF={L:[0,0],R:[0,0]};let ofT=0,ofSent='';
+['L','R'].forEach(e=>{const d=document.createElement('div');d.innerHTML=`<b>Ojo ${e=='L'?'izquierdo':'derecho'}</b><br>
+<div style="display:grid;grid-template-columns:repeat(3,44px);gap:4px;margin:6px 0">
+<span></span><button onclick="ofsStep('${e}',0,-1)">&uarr;</button><span></span>
+<button onclick="ofsStep('${e}',-1,0)">&larr;</button><button onclick="ofsSet('${e}',0,0)">0</button><button onclick="ofsStep('${e}',1,0)">&rarr;</button>
+<span></span><button onclick="ofsStep('${e}',0,1)">&darr;</button><span></span></div>
+X <input type=range min=-30 max=30 id=o${e}x oninput="ofsSet('${e}',+this.value,OF.${e}[1])"> <span id=o${e}xv>0</span><br>
+Y <input type=range min=-30 max=30 id=o${e}y oninput="ofsSet('${e}',OF.${e}[0],+this.value)"> <span id=o${e}yv>0</span>`;$('ofsbox').appendChild(d)});
+function ofsShow(e){$('o'+e+'x').value=OF[e][0];$('o'+e+'y').value=OF[e][1];$('o'+e+'xv').textContent=OF[e][0];$('o'+e+'yv').textContent=OF[e][1]}
+function ofsSet(e,x,y){x=Math.max(-30,Math.min(30,x));y=Math.max(-30,Math.min(30,y));OF[e]=[x,y];ofsShow(e);
+ const n=Date.now();if(n-ofT<60){clearTimeout(ofsSet.t);ofsSet.t=setTimeout(()=>ofsSet(e,x,y),70);return}ofT=n;cmd(`O ${e} ${x} ${y}`)}
+function ofsStep(e,dx,dy){ofsSet(e,OF[e][0]+dx,OF[e][1]+dy)}
+let calOn=false;function calib(){calOn=!calOn;$('cal').classList.toggle('on',calOn);cmd(calOn?'C 1':'C 0')}
+function ofsParse(t){const v=t.trim().split(' ').filter(Boolean).slice(1).map(Number);if(v.length<4||v.some(isNaN))return;
+ if(t==ofSent)return;ofSent=t;OF.L=[v[0],v[1]];OF.R=[v[2],v[3]];ofsShow('L');ofsShow('R');$('ofs').textContent=t}
 function demo(){demoOn=!demoOn;$('demo').classList.toggle('on',demoOn);cmd(demoOn?'D':'M neutral')}
 let ln=0;setInterval(async()=>{const r=await api('/poll?since='+ln);if(r.lines.length){ln=r.lines[r.lines.length-1][0];const l=$('log');l.textContent+=r.lines.map(x=>x[1]).join('\\n')+'\\n';l.scrollTop=l.scrollHeight}
- $('imu').textContent=r.imu},400);
-refresh();
+ $('imu').textContent=r.imu;if(r.ofs&&Date.now()-ofT>600)ofsParse(r.ofs)},400);
+refresh();setTimeout(()=>cmd('O'),800);
 </script></html>
 """.replace("__MOODS__", json.dumps(MOODS))
 
@@ -169,7 +194,7 @@ class H(BaseHTTPRequestHandler):
             self.reply({"ports": ports, **cur})
         elif self.path.startswith("/poll"):
             since = int(self.path.split("since=")[-1] or 0)
-            self.reply({"lines": [l for l in log if l[0] > since], "imu": imu})
+            self.reply({"lines": [l for l in log if l[0] > since], "imu": imu, "ofs": ofs})
         else:
             self.reply({}, 404)
 

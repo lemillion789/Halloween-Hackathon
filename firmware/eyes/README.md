@@ -54,3 +54,8 @@ LEDs: `G 255` brillo de los LEDs rojos (0..255) | `G P` latido suave | `G H [bpm
 
 IMU: `I` una lectura | `I 1` / `I 0` stream a 20 Hz | `I C` recalibrar giroscopio
 Respuesta: `IMU <pitch> <roll> <ax> <ay> <az> <gx> <gy> <gz>` (grados, g, grados/s)
+
+Centrado fisico de los ojos (se guarda en la flash/NVS, namespace `eyes`):
+`O` -> `OFS <lx> <ly> <rx> <ry>` | `O L <dx> <dy>` / `O R <dx> <dy>` desplaza cada ojo en pixeles (+-30, sin guardar)
+`O S` guardar | `O E` recargar lo guardado | `O 0` todo a 0 (sin guardar) | `C 1` / `C 0` modo calibracion (mirada fija al centro, sin parpadeo, cruz verde)
+Desde el panel `tools/head_control.py`: tarjeta "Centrado de ojos" (flechas/sliders por ojo, "Guardar en ESP32").

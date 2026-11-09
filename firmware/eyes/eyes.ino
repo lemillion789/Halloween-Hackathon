@@ -8,11 +8,16 @@
 //               formato: IMU <pitch> <roll> <ax> <ay> <az> <gx> <gy> <gz>  (grados, g, grados/s)
 //   G <0..255>  brillo de los LEDs rojos interiores (al arrancar: 255) | G P latido suave
 //   G H [bpm]   latido de corazon "pum-pum ... pum-pum" (por defecto 70 bpm)
+//   O           ver el centrado: responde OFS <lx> <ly> <rx> <ry> (pixeles)
+//   O L <dx> <dy> / O R <dx> <dy>  desplaza el ojo izquierdo/derecho (+-OFS_MAX px, sin guardar)
+//   O S         guarda el centrado en flash (NVS) | O 0 vuelve a 0 0 0 0 (sin guardar) | O E recarga lo guardado
+//   C 1 / C 0   modo calibracion: mirada al centro, sin parpadeo, con cruz en el centro del ojo
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7735.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <math.h>
+#include <Preferences.h>
 
 // Pines (ver README.md). SCK=18, MOSI=23 son los de VSPI por defecto.
 #define PIN_DC   16
@@ -52,6 +57,34 @@ float lid = 1.0, lidTgt = 1.0;   // apertura del parpadeo: 1 abierto, 0 cerrado
 uint32_t nextBlink = 0, nextSaccade = 0, blinkEnd = 0;
 bool demo = false;
 uint32_t nextDemo = 0;
+
+// Centrado fisico: cada ojo se dibuja desplazado (dx, dy) pixeles en su pantalla. Se guarda en NVS.
+const int OFS_MAX = 30;
+int ofsLx = 0, ofsLy = 0, ofsRx = 0, ofsRy = 0;
+bool ofsDirty = true;  // borrar la pantalla al cambiar el desplazamiento (quedan bordes viejos)
+bool calib = false;
+Preferences prefs;
+
+void ofsLoad() {
+  prefs.begin("eyes", true);
+  ofsLx = prefs.getInt("lx", 0);
+  ofsLy = prefs.getInt("ly", 0);
+  ofsRx = prefs.getInt("rx", 0);
+  ofsRy = prefs.getInt("ry", 0);
+  prefs.end();
+  ofsDirty = true;
+}
+
+void ofsSave() {
+  prefs.begin("eyes", false);
+  prefs.putInt("lx", ofsLx);
+  prefs.putInt("ly", ofsLy);
+  prefs.putInt("rx", ofsRx);
+  prefs.putInt("ry", ofsRy);
+  prefs.end();
+}
+
+void ofsPrint() { Serial.printf("OFS %d %d %d %d\n", ofsLx, ofsLy, ofsRx, ofsRy); }
 
 // Globo ocular precalculado (degradado rosa -> rojo + venas); el ojo derecho lo usa en espejo.
 // Un solo buffer: 3 de 40 KB no caben juntos en el heap contiguo del ESP32.
@@ -178,13 +211,24 @@ void drawEye(bool left) {
   } else if (mood == HAPPY) {  // parpado inferior curvo hacia arriba
     canvas.fillCircle(CX, CY + r + 22, r + 6, C_BG);
   }
+
+  if (calib) {  // cruz en el centro del ojo para alinearlo con la cuenca
+    canvas.drawFastHLine(0, CY, W, 0x07E0);
+    canvas.drawFastVLine(CX, 0, H, 0x07E0);
+    canvas.drawCircle(CX, CY, R, 0x07E0);
+  }
 }
 
 void render() {
+  if (ofsDirty) {
+    tftL.fillScreen(C_BG);
+    tftR.fillScreen(C_BG);
+    ofsDirty = false;
+  }
   drawEye(true);
-  tftL.drawRGBBitmap(0, 0, canvas.getBuffer(), W, H);
+  tftL.drawRGBBitmap(ofsLx, ofsLy, canvas.getBuffer(), W, H);  // la libreria recorta lo que sale de la pantalla
   drawEye(false);
-  tftR.drawRGBBitmap(0, 0, canvas.getBuffer(), W, H);
+  tftR.drawRGBBitmap(ofsRx, ofsRy, canvas.getBuffer(), W, H);
 }
 
 // ---- IMU: registros comunes de la familia MPU6050/6500/9250, sin librerias ----
@@ -289,7 +333,7 @@ void imuUpdate() {
 
   uint32_t now = millis();
 #if SHAKE_DIZZY
-  if (sqrtf(gx * gx + gy * gy + gz * gz) > SHAKE_DPS) {
+  if (!calib && sqrtf(gx * gx + gy * gy + gz * gz) > SHAKE_DPS) {
     if (now > dizzyEnd) moodBeforeDizzy = mood;
     mood = DIZZY;
     dizzyEnd = now + 3000;
@@ -384,6 +428,40 @@ void handleSerial() {
   } else if (line == "I C") {
     imuCalibrate();
     Serial.println("IMU calibrado");
+  } else if (line == "O") {
+    ofsPrint();
+  } else if (line.startsWith("O L ") || line.startsWith("O R ")) {
+    int dx = 0, dy = 0;
+    sscanf(line.c_str() + 4, "%d %d", &dx, &dy);
+    dx = constrain(dx, -OFS_MAX, OFS_MAX);
+    dy = constrain(dy, -OFS_MAX, OFS_MAX);
+    if (line[2] == 'L') {
+      ofsLx = dx;
+      ofsLy = dy;
+    } else {
+      ofsRx = dx;
+      ofsRy = dy;
+    }
+    ofsDirty = true;
+    ofsPrint();
+  } else if (line == "O S") {
+    ofsSave();
+    Serial.print("Guardado ");
+    ofsPrint();
+  } else if (line == "O 0") {
+    ofsLx = ofsLy = ofsRx = ofsRy = 0;
+    ofsDirty = true;
+    ofsPrint();
+  } else if (line == "O E") {
+    ofsLoad();
+    ofsPrint();
+  } else if (line == "C 1" || line == "C 0") {
+    calib = (line == "C 1");
+    if (calib) {
+      demo = false;
+      dizzyEnd = 0;
+      mood = NEUTRAL;
+    }
   } else if (line == "B") {
     blinkEnd = millis() + 150;
   } else if (line == "D") {
@@ -415,6 +493,8 @@ void setup() {
     while (true) delay(1000);
   }
   buildSclera(sclera, 7);
+  ofsLoad();
+  ofsPrint();
   imuBegin();
 }
 
@@ -427,6 +507,11 @@ void loop() {
     mood = (Mood)((mood + 1) % MOOD_COUNT);
     Serial.println(MOOD_NAMES[mood]);
     nextDemo = now + 3000;
+  }
+  if (calib) {  // quieto y mirando al frente mientras se centra
+    tgtX = tgtY = 0;
+    nextSaccade = now + 1000;
+    nextBlink = now + 1000;
   }
   if (now > nextSaccade) {  // mirada aleatoria cuando nadie la controla
     tgtX = random(-100, 101) / 100.0;
