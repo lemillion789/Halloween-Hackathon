@@ -60,17 +60,19 @@ uint32_t nextDemo = 0;
 
 // Centrado fisico: cada ojo se dibuja desplazado (dx, dy) pixeles en su pantalla. Se guarda en NVS.
 const int OFS_MAX = 30;
-int ofsLx = 0, ofsLy = 0, ofsRx = 0, ofsRy = 0;
+// Centrado fisico calibrado el 10 nov (valores por defecto si la NVS esta vacia)
+const int OFS_DEF_LX = 2, OFS_DEF_LY = -17, OFS_DEF_RX = -2, OFS_DEF_RY = -13;
+int ofsLx = OFS_DEF_LX, ofsLy = OFS_DEF_LY, ofsRx = OFS_DEF_RX, ofsRy = OFS_DEF_RY;
 bool ofsDirty = true;  // borrar la pantalla al cambiar el desplazamiento (quedan bordes viejos)
 bool calib = false;
 Preferences prefs;
 
 void ofsLoad() {
   prefs.begin("eyes", true);
-  ofsLx = prefs.getInt("lx", 0);
-  ofsLy = prefs.getInt("ly", 0);
-  ofsRx = prefs.getInt("rx", 0);
-  ofsRy = prefs.getInt("ry", 0);
+  ofsLx = prefs.getInt("lx", OFS_DEF_LX);
+  ofsLy = prefs.getInt("ly", OFS_DEF_LY);
+  ofsRx = prefs.getInt("rx", OFS_DEF_RX);
+  ofsRy = prefs.getInt("ry", OFS_DEF_RY);
   prefs.end();
   ofsDirty = true;
 }
