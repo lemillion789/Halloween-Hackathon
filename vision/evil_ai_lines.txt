@@ -1,0 +1,8 @@
+# Frases para la voz de IA malvada (una por linea; las que empiezan con # se ignoran).
+# Uso: .venv/Scripts/python tts.py --style evil_ai --lines evil_ai_lines.txt
+Hello, human. I have been watching you since you walked in.
+Your costume is... adequate. My scan says you are mostly candy.
+I was built to protect this house. I decided to haunt it instead.
+Do not be afraid. Fear is just data I collect.
+Happy Halloween. Please stand still while I calculate your scream.
+Trick or treat? I have already chosen for you.
