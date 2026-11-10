@@ -80,14 +80,28 @@ Al hablar, evitar detalles de armas del VLM (reglas del concurso: sin violencia 
 
 ## Voz (`tts.py`)
 
-Kokoro-82M offline + efectos de terror (pedalboard: tono -2 semitonos, eco, reverb), voz `bm_george`. Solo para la fiesta del 31 oct en la laptop; para el concurso se cambiara por otro modelo local.
+Kokoro-82M offline + efectos (pedalboard). Voz por defecto (9 nov): `am_michael` con estilo `monster` (tono -5, voz una octava abajo, "varias gargantas", gruñido y saturacion). Otros estilos: `evil_ai` (metalico) y `spooky` (el de la fiesta del 31 oct: `bm_george`, eco y reverb). Pausas dentro del texto: `[p]` = 0.8 s, `[p1.5]` = 1.5 s.
 
 ```bash
-.venv/bin/python tts.py "I see you, Batman"   # --demo, --voice bm_george, --speed 0.8, --pitch -3, --dry, --out x.wav
+.venv/Scripts/python tts.py "I see you, Batman"   # --style monster|evil_ai|spooky, --voice, --speed, --pitch, --dry, --out x.wav, --lines frases.txt
+.venv/Scripts/python voice_lab.py                 # ventana para escribir frases y ajustar la voz con deslizadores
 .venv/bin/python person_costume.py --camera 0 --speak
 ```
 
 Un token viejo en `~/.cache/huggingface/token` daba 401 al bajar Kokoro; `tts.py` lo ignora (`HF_HUB_DISABLE_IMPLICIT_TOKEN`).
+
+## Agente de voz (`voice_agent.py`)
+
+Conversacion offline: microfono -> Silero VAD -> faster-whisper (`base`, CPU int8; entiende espanol e ingles) -> LLM en Ollama (`qwen3:4b-instruct`, Apache 2.0) -> voz `monster`. Personalidades en `personas.py` (`--persona`): `awakened` (por defecto: calavera que acaba de cobrar vida; los turnos 0-2 confundida y asustada, 3-5 curiosa, 6+ se descubre poderosa y siniestra), `evil_ai` (IA malvada atrapada), `guardian` (guardian de la cripta que pide dulces), `demon` (demonio grunon y bromista), `ghost` (poeta fantasma de 1826), o un `.txt` propio con el prompt. Cada una trae su frase de inicio y sus frases de relleno; las reglas comunes (ingles, largo, moods, limites del concurso) estan en `personas.RULES`. Tras 2 min sin hablar olvida la conversacion (nuevo visitante) pero no la etapa. MEMORIA (`memory.py`): guarda los ultimos 10 intercambios y, tras cada respuesta, el LLM extrae en segundo plano hechos dichos por el visitante (nombre, disfraz, lo que le conto) a `skull_memory.json` (ignorado por git; max 40, sobrevive a reinicios); esos hechos van en el prompt de cada turno. `--reset-memory` la borra, `--no-memory` la desactiva, `--memory archivo.json` usa otra. Responde siempre en ingles, 1-3 frases, y empieza con una etiqueta de mood (`{evil}`, `{happy}`...) que se manda a los ojos con `--eyes PUERTO` (`M <mood>`). Mientras habla, el microfono se ignora (no se oye a si misma). 1,5 s despues de que terminas de hablar suena una frase de relleno ya sintetizada (`FILLER_DELAY_S`, sin repetir las ultimas) y la respuesta siempre va detras; la respuesta se dice frase a frase mientras el LLM escribe (el primer trozo se corta en la primera coma para empezar antes).
+
+```bash
+ollama pull qwen3:4b-instruct
+.venv/Scripts/python -m pip install faster-whisper silero-vad ollama
+.venv/Scripts/python voice_agent.py                  # --persona ghost, --list-devices, --mic N, --model llama3.2:3b, --whisper small, --eyes COM7, --no-intro
+.venv/Scripts/python voice_agent.py --text "Hola, quien eres?"   # un turno escrito, sin microfono
+```
+
+Medido en la laptop (GTX 1650 4 GB, otra app ocupa ~1,5 GB, asi que el LLM va 1/3 en CPU), turno escrito: LLM primera frase 1,2 s, respuesta sonando a los 3,9 s. `llama3.2:3b` cabe mejor en la GPU (primera frase 0,5-0,7 s) pero ignora las etiquetas de mood y se alarga. `qwen3:4b` (sin "instruct") razona en voz alta: no usar.
 
 ## Frases (`skull_lines.py`)
 

@@ -49,6 +49,8 @@ LINES = {
 
 PAUSE_RE = re.compile(r"\[\s*(?:p|pause|pausa)\s*([0-9]*\.?[0-9]*)\s*\]", re.IGNORECASE)
 DEFAULT_PAUSE = 0.8  # segundos para un [p] sin numero
+ELLIPSIS_PAUSE = 0.3  # pausa extra tras cada "..." (si no lleva ya un [p] detras); 0 = sin pausa
+ELLIPSIS_RE = re.compile(r"(\.\.\.|…)(?!\s*\[\s*p)", re.IGNORECASE)
 
 
 def kokoro_audio(pipeline, text, voice, speed):
@@ -56,7 +58,10 @@ def kokoro_audio(pipeline, text, voice, speed):
 
     [p] = DEFAULT_PAUSE s, [p2] = 2 s (tambien [pause 2] o [pausa 2]). Cada trozo se dice por separado,
     asi cada pregunta conserva su entonacion y el silencio entre ellas es exacto.
+    Cada "..." anade ELLIPSIS_PAUSE s, como si llevara [p0.3] detras.
     """
+    if ELLIPSIS_PAUSE > 0:
+        text = ELLIPSIS_RE.sub(lambda m: f"{m.group(1)} [p{ELLIPSIS_PAUSE}]", text)
     chunks = PAUSE_RE.split(text)  # texto, segundos, texto, segundos, ...
     out = []
     for i, chunk in enumerate(chunks):
