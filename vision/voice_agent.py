@@ -42,7 +42,7 @@ BLOCK = 512  # 32 ms a 16 kHz: el tamano que pide Silero VAD
 MAX_UTTERANCE_S = 15
 
 DEFAULT_MODEL = "qwen3:4b-instruct"  # Apache 2.0; respeta mood y [p]. Mas rapido pero sin moods: llama3.2:3b
-MAX_SENTENCES = 3
+MAX_SENTENCES = 4  # tope duro; el prompt pide 1-3 y una 4a solo si hace falta
 LOCK_PORT = 47613  # puerto local que solo sirve para impedir dos agentes a la vez
 FILLER_DELAY_S = 1.5  # el relleno suena este rato despues de que el visitante deja de hablar
 FORGET_AFTER_S = 120  # sin hablar este rato se olvida la conversacion (nuevo visitante); la etapa se mantiene

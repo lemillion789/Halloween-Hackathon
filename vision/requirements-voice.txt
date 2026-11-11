@@ -1,0 +1,14 @@
+# Dependencias de la voz de la calavera (tts.py, voice_lab.py, voice_agent.py).
+# pip install -r requirements-voice.txt
+# Ademas: Ollama instalado y `ollama pull qwen3:4b-instruct`.
+# Linux: sounddevice necesita PortAudio (sudo apt install libportaudio2); Kokoro usa espeak-ng (sudo apt install espeak-ng).
+# Jetson: instalar ANTES el torch de NVIDIA para JetPack (no el de PyPI, que no usa la GPU) y luego esto.
+numpy
+kokoro
+soundfile
+sounddevice
+pedalboard
+faster-whisper
+silero-vad
+ollama
+pyserial  # solo para --eyes
