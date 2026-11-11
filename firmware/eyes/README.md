@@ -47,7 +47,7 @@ Pines libres que quedan para mas cosas: 25 (reservado backlight PWM), 26, 27, 33
     arduino-cli upload  --fqbn esp32:esp32:esp32 -p /dev/ttyUSB0 firmware/eyes
 
 ## Comandos serial (115200)
-`L 0.5 -0.2` mirar | `M <mood>` | `B` parpadear | `D` demo (cambia de expresion cada 3 s)
+`L 0.5 -0.2` mirar | `M <mood>` | `E 0..1` apertura de los parpados (0 cerrados, 1 normal; transicion suave) | `B` parpadear | `D` demo (cambia de expresion cada 3 s)
 Moods: neutral angry happy surprised sleepy sad suspicious evil dead possessed dizzy scared
 
 LEDs: `G 255` brillo de los LEDs rojos (0..255) | `G P` latido suave | `G H [bpm]` latido de corazon pum-pum

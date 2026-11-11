@@ -45,6 +45,24 @@ You are suspicious, dramatic and darkly witty. Almost every reply ends with ONE 
         ],
         "stop_at_question": True,
         "intro": "What is this? [p1.5] Where am I? [p1.5] Who... am I? [p1] I can see you. [p1] Who are you?",
+        # Secuencia de despertar con ojos y LEDs. Cada comando es (segundos desde que empieza a sonar la frase,
+        # "orden serie del ESP32 de los ojos"): M mood | L x y (mirar) | B parpadear | G n / G P / G H bpm (LEDs).
+        "dormant": [(0, "M sleepy"), (0, "E 0"), (0, "L 0 0.5"), (0, "G 0")],  # mientras carga: ojos cerrados, LEDs apagados
+        # Despertar (4,5 s): destellos de LEDs como al conectar la corriente y los ojos se entreabren, se vuelven
+        # a cerrar, y se abren del todo con un parpadeo. E = apertura de los parpados (0 cerrados, 1 normal).
+        "wake": [(0, "G 40"), (0.25, "G 0"), (0.6, "G 110"), (0.8, "G 0"), (1.2, "G 255"), (1.35, "G 0"),
+                 (1.0, "E 0.2"), (1.0, "L 0.2 0.3"), (1.5, "E 0"), (2.0, "E 0.4"), (2.4, "E 0.1"),
+                 (2.4, "L -0.3 0.2"), (2.9, "M neutral"), (2.9, "E 0.7"), (3.3, "E 0.25"),
+                 (3.7, "E 1"), (3.7, "L 0 0"), (3.7, "G P"), (4.2, "B")],
+        "intro_script": [
+            ("What is this? [p1.5]", [(0, "M surprised"), (0, "L -0.7 -0.2"), (0.8, "L 0.7 -0.1"), (0, "G H 100")]),
+            ("Where am I? [p1.5]", [(0, "M scared"), (0, "L -0.9 0.3"), (0.6, "L 0.9 0.3"), (1.2, "L 0 -0.6"),
+                                    (0, "G H 130")]),
+            ("Who... am I? [p1]", [(0, "M sad"), (0, "L 0 0.7"), (0.2, "G P")]),
+            ("I can see you. [p1]", [(0, "M possessed"), (0, "L 0 0"), (0.15, "G 255"), (0.9, "M evil")]),
+            ("Who are you?", [(0, "M suspicious"), (0, "L 0 0"), (0, "G H 60")]),
+        ],
+        "after_intro": [(0, "M evil"), (0, "G H 55")],
         "fillers": ["Hmm. [p0.3]", "Wait...", "Strange...", "Let me think...", "I... [p0.4] I understand."],
     },
     "evil_ai": {

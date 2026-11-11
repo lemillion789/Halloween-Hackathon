@@ -1,6 +1,7 @@
 // Ojos de la calavera: 2x TFT ST7735 128x160 (verticales) en un ESP32, bus SPI compartido, CS separados.
 // Comandos por serial (115200):
 //   L <x> <y>   mirar, x/y en -1..1
+//   E <0..1>    apertura maxima de los parpados (0 = cerrados, 1 = normal), transicion suave
 //   M <mood>    neutral angry happy surprised sleepy sad suspicious evil dead possessed dizzy scared
 //   B           parpadear
 //   D           activa/desactiva modo demo (recorre todas las expresiones)
@@ -54,6 +55,7 @@ Mood mood = ANGRY;  // por defecto enojado
 float lookX = 0, lookY = 0;      // posicion actual
 float tgtX = 0, tgtY = 0;        // destino
 float lid = 1.0, lidTgt = 1.0;   // apertura del parpadeo: 1 abierto, 0 cerrado
+float lidCap = 1.0, lidCapTgt = 1.0;  // tope de apertura puesto por `E v` (0 = ojos cerrados), con transicion suave
 uint32_t nextBlink = 0, nextSaccade = 0, blinkEnd = 0;
 bool demo = false;
 uint32_t nextDemo = 0;
@@ -196,6 +198,7 @@ void drawEye(bool left) {
   if (mood == SLEEPY) open *= 0.45;
   if (mood == SUSPICIOUS) open *= 0.5;
   if (mood == DEAD || mood == POSSESSED) open = 1.0;
+  open *= lidCap;  // `E v`: manda sobre la expresion (despertar, ojos cerrados)
   int top = CY - r - 2 + (int)((1.0 - open) * (r + 2));
   canvas.fillRect(0, 0, W, top, C_BG);
   int bot = CY + r + 2 - (int)((1.0 - open) * (r + 2));
@@ -464,6 +467,8 @@ void handleSerial() {
       dizzyEnd = 0;
       mood = NEUTRAL;
     }
+  } else if (line.startsWith("E ")) {
+    lidCapTgt = constrain(line.substring(2).toFloat(), 0.0f, 1.0f);
   } else if (line == "B") {
     blinkEnd = millis() + 150;
   } else if (line == "D") {
@@ -526,6 +531,7 @@ void loop() {
   }
   lidTgt = (now < blinkEnd) ? 0.0 : 1.0;
   lid += (lidTgt - lid) * 0.6;
+  lidCap += (lidCapTgt - lidCap) * 0.3;
   lookX += (tgtX - lookX) * 0.35;
   lookY += (tgtY - lookY) * 0.35;
 

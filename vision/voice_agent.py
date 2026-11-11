@@ -86,9 +86,10 @@ class Voice:
             if self.pending == 0:
                 self.last_end = time.time()
 
-    def say(self, text):
+    def say(self, text, on_start=None):
+        """on_start: funcion sin argumentos que se llama justo cuando esta frase empieza a sonar."""
         self._add(1)
-        self.texts.put(text)
+        self.texts.put((text, on_start))
 
     def play_filler(self, text, audio, at):
         """Frase de relleno ya sintetizada que suena en el instante `at` (time.time()).
@@ -98,7 +99,7 @@ class Voice:
         """
         token = {"cancel": False}
         self._add(1)
-        self.audio.put((text, audio, at, token))
+        self.audio.put((text, audio, at, token, None))
         return token
 
     @staticmethod
@@ -114,9 +115,9 @@ class Voice:
 
     def _synth_loop(self):
         while True:
-            text = self.texts.get()
+            text, on_start = self.texts.get()
             try:
-                self.audio.put((text, self.render(text), None, None))
+                self.audio.put((text, self.render(text), None, None, on_start))
             except Exception as e:
                 log("voz", f"error sintetizando: {type(e).__name__}: {e}")
                 self._add(-1)
@@ -124,7 +125,7 @@ class Voice:
     def _play_loop(self):
         import sounddevice as sd
         while True:
-            text, audio, at, token = self.audio.get()
+            text, audio, at, token, on_start = self.audio.get()
             try:
                 if token is not None:  # relleno: espera a su hora, salvo que se cancele
                     while time.time() < at and not token["cancel"]:
@@ -137,6 +138,8 @@ class Voice:
                     if self.on_first_audio:
                         self.on_first_audio(text)
                     log("calavera", text)
+                    if on_start:
+                        on_start()
                 sd.play(audio, tts.SAMPLE_RATE)
                 sd.wait()
             except Exception as e:
@@ -320,11 +323,36 @@ class Eyes:
 
     def __init__(self, port):
         import serial
-        self.port = serial.Serial(port, 115200, timeout=0.2)
-        time.sleep(2)  # el ESP32 se reinicia al abrir el puerto
+        # Abrir con DTR/RTS en bajo: si no, el autoreset del CP2102 puede dejar GPIO0 en bajo y el ESP32 arranca en
+        # modo descarga (mudo, pantallas congeladas). Luego un reinicio limpio (EN bajo con GPIO0 alto).
+        self.port = serial.Serial()
+        self.port.port, self.port.baudrate, self.port.timeout = port, 115200, 0.2
+        self.port.dtr = self.port.rts = False
+        self.port.open()
+        self.port.dtr, self.port.rts = False, True
+        time.sleep(0.15)
+        self.port.rts = False
+        time.sleep(2.5)  # arranque del firmware
+        self.port.reset_input_buffer()
+
+    def send(self, cmd):
+        self.port.write(f"{cmd}\n".encode())
 
     def mood(self, mood):
-        self.port.write(f"M {mood}\n".encode())
+        self.send(f"M {mood}")
+
+
+def play_cues(send, cues, wait=False):
+    """Lanza una lista [(segundos, "orden")] a los ojos (send) a su hora, en un hilo. wait=True espera a que acabe."""
+    def run():
+        t0 = time.time()
+        for delay, cmd in sorted(cues, key=lambda c: c[0]):
+            time.sleep(max(0.0, t0 + delay - time.time()))
+            send(cmd)
+    th = threading.Thread(target=run, daemon=True)
+    th.start()
+    if wait:
+        th.join()
 
 
 def main():
@@ -367,6 +395,9 @@ def main():
 
     eyes = Eyes(args.eyes) if args.eyes else None
     set_mood = eyes.mood if eyes else (lambda m: log("ojos", m))
+    send_eyes = eyes.send if eyes else (lambda c: log("ojos", c))
+    if persona.get("dormant") and not args.no_intro:
+        play_cues(send_eyes, persona["dormant"])  # ojos medio cerrados y LEDs apagados mientras carga todo
 
     log("inicio", "cargando voz...")
     voice = Voice()
@@ -414,10 +445,19 @@ def main():
         set_mood("evil")
 
     if not args.no_intro:
-        set_mood("possessed")
-        voice.say(persona["intro"])
-        voice.wait()
-        set_mood("evil")
+        if persona.get("intro_script"):
+            if persona.get("wake"):
+                play_cues(send_eyes, persona["wake"], wait=True)  # encendido: destellos de LEDs y abre los ojos
+                time.sleep(0.4)
+            for text, cues in persona["intro_script"]:
+                voice.say(text, on_start=lambda c=cues: play_cues(send_eyes, c))
+            voice.wait()
+            play_cues(send_eyes, persona.get("after_intro", [(0, "M evil")]))
+        else:
+            set_mood("possessed")
+            voice.say(persona["intro"])
+            voice.wait()
+            set_mood("evil")
 
     if args.text:
         for text in args.text:
