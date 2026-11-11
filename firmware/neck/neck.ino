@@ -38,7 +38,7 @@ const unsigned long POWER_PULSE_MS = 1000;
 unsigned long powerPulseUntil = 0;
 
 const int PAN_MIN = 45, PAN_MAX = 135, PAN_CENTER = 90;
-const int TILT_MIN = 60, TILT_MAX = 120, TILT_CENTER = 90;   // ajustar al mecanismo real
+const int TILT_MIN = 40, TILT_MAX = 105, TILT_CENTER = 90;   // limites fisicos del cuello (medidos por el usuario)
 const unsigned long SWEEP_MS = 20, GOTO_MS = 10;
 
 const int MAX_SPEED = 150;                 // limite de software (unidades EFeru, max firmware 1000)
