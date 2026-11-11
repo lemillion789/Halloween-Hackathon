@@ -185,18 +185,22 @@ class Ear:
                     return audio
 
 
+# Sesga a Whisper hacia el vocabulario esperado (nombres, "I made you"...): evita "I made juice".
+WHISPER_PROMPT = "Conversation with a skull. I am Diego. I made you. You are an evil AI. Who are you? Humans, Halloween."
+
+
 class Stt:
     def __init__(self, size="base", device="cpu"):
         from faster_whisper import WhisperModel
         self.model = WhisperModel(size, device=device, compute_type="int8" if device == "cpu" else "float16")
 
     def __call__(self, audio):
-        segments, info = self.model.transcribe(audio, beam_size=1, condition_on_previous_text=False)
+        segments, info = self.model.transcribe(audio, beam_size=1, condition_on_previous_text=False, initial_prompt=WHISPER_PROMPT)
         lang = info.language
         if lang not in ("en", "es"):  # solo esperamos espanol o ingles: se repite con el mas probable de los dos
             probs = dict(info.all_language_probs or [])
             lang = "es" if probs.get("es", 0) > probs.get("en", 0) else "en"
-            segments, info = self.model.transcribe(audio, beam_size=1, language=lang, condition_on_previous_text=False)
+            segments, info = self.model.transcribe(audio, beam_size=1, language=lang, condition_on_previous_text=False, initial_prompt=WHISPER_PROMPT)
         text = " ".join(s.text.strip() for s in segments if s.no_speech_prob < 0.6).strip()
         if text.lower() in HALLUCINATIONS or len(text) < 2:
             return "", lang
@@ -222,7 +226,7 @@ def clean(text):
 
 
 class Brain:
-    def __init__(self, model=DEFAULT_MODEL, persona=None, memory=None, max_turns=10):
+    def __init__(self, model=DEFAULT_MODEL, persona=None, memory=None, max_turns=6):
         import ollama
         self.client, self.model, self.max_turns = ollama.Client(), model, max_turns
         self.persona = persona or personas.load(personas.DEFAULT_PERSONA)
@@ -234,7 +238,7 @@ class Brain:
 
     def warm_up(self):
         """Carga el modelo en memoria antes del primer turno (si no, la 1a respuesta tarda mucho mas)."""
-        self.client.generate(model=self.model, prompt="", keep_alive="30m")
+        self.client.generate(model=self.model, prompt="", keep_alive="30m", options={"num_ctx": memory.NUM_CTX})
 
     def reply(self, user_text, lang, on_mood=None):
         """Generador: va devolviendo frases completas de la respuesta mientras el LLM escribe."""
@@ -247,14 +251,16 @@ class Brain:
         messages = ([{"role": "system", "content": system}] + self.history[-2 * self.max_turns:]
                     + [{"role": "user", "content": user_text + note}])
         kwargs = dict(model=self.model, messages=messages, stream=True, keep_alive="30m",
-                      options={"temperature": 0.8, "num_predict": 150})
+                      options={"temperature": 0.8, "num_predict": 150, "num_ctx": memory.NUM_CTX})
         try:
             stream = self.client.chat(think=False, **kwargs)
         except TypeError:  # cliente de ollama viejo, sin `think`: queda el /no_think del prompt
             stream = self.client.chat(**kwargs)
         full, buf, mood_done, said, first_cut = "", "", False, 0, False
+        stop_q = self.persona.get("stop_at_question", False)  # calla tras la primera pregunta
+        spoken, stop = [], False
         for chunk in stream:
-            if said >= MAX_SENTENCES:  # el modelo se alarga: se corta aqui y no se espera al resto
+            if said >= MAX_SENTENCES or stop:  # el modelo se alarga: se corta aqui y no se espera al resto
                 buf = ""
                 break
             piece = chunk["message"]["content"]
@@ -277,22 +283,28 @@ class Brain:
                 if comma and comma.start() >= 12 and (end is None or comma.start() < end.start()):
                     first_cut = True
                     if (head := clean(MOOD_TAG.sub("", buf[:comma.start() + 1]))):
+                        spoken.append(head)
                         yield head
                     buf = buf[comma.end():]
             while (m := SENTENCE_END.search(buf)):
                 sentence, buf = clean(MOOD_TAG.sub("", buf[:m.end()])), buf[m.end():]
-                if sentence and said < MAX_SENTENCES:
+                if sentence and said < MAX_SENTENCES and not stop:
                     said += 1
+                    spoken.append(sentence)
                     yield sentence
-        if said < MAX_SENTENCES and (rest := clean(MOOD_TAG.sub("", buf))):
+                    # calla tras la 1a pregunta de verdad (no tras un eco corto como "Lazy?" al inicio)
+                    if stop_q and sentence.rstrip().endswith("?") and (said >= 2 or len(sentence.split()) >= 6):
+                        stop = True
+        if said < MAX_SENTENCES and not stop and (rest := clean(MOOD_TAG.sub("", buf))):
+            spoken.append(rest)
             yield rest
         self.history += [{"role": "user", "content": user_text + note},
-                         {"role": "assistant", "content": clean(full)}]
+                         {"role": "assistant", "content": " ".join(spoken) or clean(full)}]
         self.turns += 1
         self.last_turn = time.time()
         if self.memory:  # en segundo plano, mientras la calavera habla: que hechos vale la pena recordar
             self.memory_thread = threading.Thread(target=self._remember, daemon=True,
-                                                  args=(user_text, clean(MOOD_TAG.sub("", full))))
+                                                  args=(user_text, " ".join(spoken) or clean(MOOD_TAG.sub("", full))))
             self.memory_thread.start()
 
     def _remember(self, user_text, skull_text):
@@ -317,7 +329,8 @@ class Eyes:
 
 def main():
     ap = argparse.ArgumentParser(description="Agente de voz de la calavera.")
-    ap.add_argument("--mic", type=int, default=None, help="indice del microfono (--list-devices)")
+    ap.add_argument("--mic", type=int, default=None, help="indice del microfono (--list-devices); por defecto pipewire en Linux")
+    ap.add_argument("--out-device", help="salida de audio: indice o parte del nombre (por defecto pipewire en Linux)")
     ap.add_argument("--list-devices", action="store_true")
     ap.add_argument("--model", default=DEFAULT_MODEL, help="modelo de Ollama (qwen3:4b-instruct, llama3.2:3b...)")
     ap.add_argument("--whisper", default="base", help="tiny, base, small...")
@@ -337,10 +350,12 @@ def main():
     if args.list_devices:
         import sounddevice as sd
         for i, d in enumerate(sd.query_devices()):
-            if d["max_input_channels"] > 0:
-                print(f"{i:3d}  {d['name']}  ({sd.query_hostapis(d['hostapi'])['name']})")
-        print("por defecto:", sd.default.device[0])
+            kind = ("entrada " if d["max_input_channels"] > 0 else "") + ("salida" if d["max_output_channels"] > 0 else "")
+            print(f"{i:3d}  {d['name']}  ({sd.query_hostapis(d['hostapi'])['name']}) {kind}")
+        print("por defecto (entrada, salida):", sd.default.device)
         return
+
+    tts.set_output_device(args.out_device)
 
     # Una sola calavera a la vez: dos agentes abiertos se oyen entre si y hablan encima uno del otro.
     lock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -416,7 +431,8 @@ def main():
 
     log("inicio", f"cargando Whisper {args.whisper}...")
     stt = Stt(args.whisper, args.whisper_device)
-    ear = Ear(args.mic, voice)
+    mic = args.mic if args.mic is not None else tts.default_input_device()
+    ear = Ear(mic, voice)
     log("listo", "Habla cuando quieras (Ctrl+C para salir).")
     try:
         while True:

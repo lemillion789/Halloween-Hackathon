@@ -17,6 +17,7 @@ import os
 import queue
 import random
 import re
+import sys
 import threading
 import warnings
 
@@ -31,6 +32,37 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="torch")
 import numpy as np
 
 SAMPLE_RATE = 24000
+
+
+def default_input_device():
+    """Indice del microfono por defecto: en Linux `pipewire` (usa la fuente por defecto del sistema; el `default`
+    de ALSA puede apuntar a una interfaz sin microfono). None = el de sounddevice."""
+    if not sys.platform.startswith("linux"):
+        return None
+    import sounddevice as sd
+    for i, d in enumerate(sd.query_devices()):
+        if d["name"] == "pipewire" and d["max_input_channels"] > 0:
+            return i
+    return None
+
+
+def set_output_device(spec=None):
+    """Fija la salida de audio de sounddevice (indice o parte del nombre). Sin spec: en Linux usa `pipewire`
+    si existe (el dispositivo `default` de ALSA puede no sonar por el adaptador USB; los `hw:` no aceptan 24 kHz)."""
+    import sounddevice as sd
+    if spec is None:
+        if not sys.platform.startswith("linux"):
+            return
+        spec = "pipewire"
+    try:
+        dev = int(spec)
+    except ValueError:
+        names = [d["name"] for d in sd.query_devices() if d["max_output_channels"] > 0]
+        dev = next((n for n in names if spec.lower() in n.lower()), None)
+        if dev is None:
+            print(f"salida '{spec}' no encontrada, se usa la de por defecto")
+            return
+    sd.default.device = (sd.default.device[0], dev)
 VOICE = "am_michael"  # elegida por el usuario (9 nov) con STYLE monster; probar bm_george, am_onyx, am_fenrir
 STYLE = "monster"     # estilo por defecto de la calavera
 SPEED = 0.85         # <1 = mas lento y siniestro
@@ -262,8 +294,10 @@ def main():
     ap.add_argument("--style", default=STYLE, choices=sorted(STYLES))
     ap.add_argument("--lines", help="archivo de texto con una frase por linea")
     ap.add_argument("--dry", action="store_true", help="sin efectos")
+    ap.add_argument("--out-device", help="salida de audio (indice o nombre; ver voice_agent.py --list-devices)")
     ap.add_argument("--out", help="guardar WAV en vez de reproducir (varias frases -> out_01.wav, out_02.wav...)")
     args = ap.parse_args()
+    set_output_device(args.out_device)
     speaker = Speaker(args.voice, args.speed, args.pitch, effects=not args.dry, style=args.style)
     texts = [" ".join(args.text)] if args.text else []
     if args.lines:

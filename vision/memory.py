@@ -10,6 +10,8 @@ import re
 import threading
 import time
 
+NUM_CTX = 2048  # contexto de Ollama: el mismo en todas las llamadas o el modelo se recarga (Jetson: poca RAM)
+
 EXTRACT_PROMPT = """You maintain the long-term memory of a talking Halloween skull.
 
 Facts already remembered:
@@ -76,7 +78,7 @@ class Memory:
         """Pide al LLM los hechos nuevos de un intercambio y los guarda. Devuelve la lista de nuevos."""
         with self.lock:
             known = "\n".join(f"- {f['fact']}" for f in self.facts) or "(nothing yet)"
-        kwargs = dict(model=model, keep_alive="30m", options={"temperature": 0.2, "num_predict": 100},
+        kwargs = dict(model=model, keep_alive="30m", options={"temperature": 0.2, "num_predict": 100, "num_ctx": NUM_CTX},
                       messages=[{"role": "user", "content": EXTRACT_PROMPT.format(
                           known=known, user=user_text, skull=skull_text)}])
         try:
