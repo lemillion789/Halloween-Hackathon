@@ -30,7 +30,7 @@ HardwareSerial &PORT_L = Serial1;
 
 const unsigned long HOVER_BAUD = 19200;
 const uint8_t ID_RIGHT = 0, ID_LEFT = 1;     // SLAVE_ID de cada placa
-const int SIGN_RIGHT = 1, SIGN_LEFT = -1;   // +1 o -1: invierte el sentido de esa rueda (estan espejadas)
+const int SIGN_RIGHT = 1, SIGN_LEFT = 1;    // +1 o -1: invierte el sentido de esa rueda. 1 con el firmware *_nobeep (placa izq. con SPEED_COEFFICIENT 1); -1 con el firmware antiguo (ruedas espejadas)
 const uint8_t HOVER_STATE = 32;           // 32 = LEDs de bateria (igual que firmware/neck/neck.ino)
 
 const int MAX_SPEED = 150;                 // 150 de 1000 = 15 % PWM maximo (limite de software)
