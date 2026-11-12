@@ -92,6 +92,7 @@ struct __attribute__((packed)) HoverCmd {
 
 Telem telemR, telemL;
 Parser parserR, parserL;
+int lastSentR = 0, lastSentL = 0;   // ultimo valor enviado a cada placa (diagnostico en W)
 bool hoverWasOk = false;           // para avisar una sola vez por transicion
 
 uint16_t crc16(const uint8_t *p, int n) {   // CRC-16/XMODEM (poly 0x1021, init 0)
@@ -206,10 +207,12 @@ void handleSerial() {
     }
   } else if (line == "W") {
     unsigned long now = millis();
-    bool ok = telemR.count && telemL.count && now - telemR.last <= TELEM_TIMEOUT_MS && now - telemL.last <= TELEM_TIMEOUT_MS;
+    bool ok = telemR.count && telemL.count && (long)(now - telemR.last) <= (long)TELEM_TIMEOUT_MS && (long)(now - telemL.last) <= (long)TELEM_TIMEOUT_MS;
     Serial.printf("HOVER R %.1f %.2f %.2f %ld %lu L %.1f %.2f %.2f %ld %lu %s\n",
                   telemR.v, telemR.a, telemR.speed, (long)telemR.odom, (unsigned long)telemR.count,
                   telemL.v, telemL.a, telemL.speed, (long)telemL.odom, (unsigned long)telemL.count, ok ? "OK" : "FALLO");
+    Serial.printf("ESTADO hoverOn=%d cmd=%d/%d edad_cmd=%lu paro=%s dist=%d enviado R=%d L=%d\n", hoverOn, cmdSpeed, cmdSteer,
+                  now - lastCmd, digitalRead(ESTOP_PIN) == LOW ? "PULSADO" : "libre", (int)distCm, lastSentR, lastSentL);
   } else if (line == "U") {
     Serial.print("DIST "); Serial.println((int)distCm);
   }
@@ -248,7 +251,7 @@ void updateHover(unsigned long now) {
 
   // Proteccion: las DOS placas deben responder, si no se paran las dos (evita girar de golpe con una sola rueda)
   bool boardsOk = telemR.count && telemL.count &&
-                  now - telemR.last <= TELEM_TIMEOUT_MS && now - telemL.last <= TELEM_TIMEOUT_MS;
+                  (long)(now - telemR.last) <= (long)TELEM_TIMEOUT_MS && (long)(now - telemL.last) <= (long)TELEM_TIMEOUT_MS;
   if (!boardsOk) sp = st = 0;
   if (!boardsOk && hoverWasOk) Serial.println("FALLO hoverboard: una placa no responde, ruedas paradas");
   if (boardsOk && !hoverWasOk) Serial.println("OK hoverboard: las dos placas responden");
@@ -258,8 +261,10 @@ void updateHover(unsigned long now) {
     lastFrame = now;
     int lm = sp - STEER_SIGN * st;
     int rm = sp + STEER_SIGN * st;
-    sendHover(PORT_R, ID_RIGHT, wheelCmd(rm, GAIN_RIGHT, SIGN_RIGHT));
-    sendHover(PORT_L, ID_LEFT, wheelCmd(lm, GAIN_LEFT, SIGN_LEFT));
+    lastSentR = wheelCmd(rm, GAIN_RIGHT, SIGN_RIGHT);
+    lastSentL = wheelCmd(lm, GAIN_LEFT, SIGN_LEFT);
+    sendHover(PORT_R, ID_RIGHT, lastSentR);
+    sendHover(PORT_L, ID_LEFT, lastSentL);
   }
 }
 
