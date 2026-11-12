@@ -1,5 +1,5 @@
 diff --git a/HoverBoardGigaDevice/Inc/config.h b/HoverBoardGigaDevice/Inc/config.h
-index 75aee4d..86b45eb 100644
+index 75aee4d..966f636 100644
 --- a/HoverBoardGigaDevice/Inc/config.h
 +++ b/HoverBoardGigaDevice/Inc/config.h
 @@ -23,17 +23,18 @@
@@ -24,6 +24,15 @@ index 75aee4d..86b45eb 100644
  	//#define BLDC_SINE_BOOSTER		// can boost speed by 15% starting from 87% throttle.
  	
  	#define DRIVING_MODE 0	//  0=pwm, 1=speed in revs/s*1024, 2=torque in NewtonMeter*1024, 3=iOdometer
+@@ -44,7 +45,7 @@
+ 	//#define BATTERY_LOW_SHUTOFF		// will shut off the board below BAT_LOW_DEAD = BAT_CELLS * CELL_LOW_DEAD, 
+ 	#define BATTERY_LOW_BEEP		// will start beeping for different battery low lwevels
+ 
+-	#define BEEP_BACKWARDS
++	//#define BEEP_BACKWARDS	// silenciado 12 nov: la placa izq. recibia velocidad negativa al avanzar (ruedas espejadas)
+ 
+ 	//#define DEBUG_LED		// uncomment to activate DEBUG_LedSet(bSet,iColor) macro. iCol: 0=green, 1=organge, 2=red
+ 
 @@ -56,7 +57,7 @@
  	#if defined(MASTER) || defined(SINGLE)
  		
@@ -42,6 +51,15 @@ index 75aee4d..86b45eb 100644
  				#ifdef REMOTE_UARTBUS
  					#define SLAVE_ID	0		// must be unique for all hoverboards connected to the bus
  				#endif
+@@ -92,7 +93,7 @@
+ 
+ 		//#define PILOT_USER	// uncomment if you want to extend the firmware with custom code :-)
+ 		//#define PILOT_HOVERBIKE	// very experimental pedal detection with chatGpt5 :-/
+-		#define SPEED_COEFFICIENT   -1	// only used if no PILOT_XY is defined
++		#define SPEED_COEFFICIENT   -1	// only used if no PILOT_XY is defined -- placa IZQUIERDA: compilar con SLAVE_ID 1 y SPEED_COEFFICIENT 1 (absorbe el signo espejo)
+ 		#define STEER_COEFFICIENT   1		// only used if no PILOT_XY is defined
+ 		
+ 		//#define DISABLE_BUTTON	// this is the opposite of former CHECK_BUTTON define.
 diff --git a/HoverBoardGigaDevice/Inc/defines.h b/HoverBoardGigaDevice/Inc/defines.h
 index 683a72c..26cdc9a 100644
 --- a/HoverBoardGigaDevice/Inc/defines.h

@@ -44,7 +44,7 @@ const unsigned long SWEEP_MS = 20, GOTO_MS = 10;
 const int MAX_SPEED = 150;                 // limite de software (unidades EFeru, max firmware 1000)
 const unsigned long CMD_TIMEOUT_MS = 300;
 const unsigned long TELEM_TIMEOUT_MS = 300;  // sin telemetria de una placa mas de esto -> parar las dos
-const int SIGN_RIGHT = 1, SIGN_LEFT = -1;    // ruedas espejadas (medido el 8 nov)
+const int SIGN_RIGHT = 1, SIGN_LEFT = 1;     // 1 con el firmware *_nobeep (placa izq. con SPEED_COEFFICIENT 1); -1 con el firmware antiguo (ruedas espejadas)
 const float GAIN_RIGHT = 1.0, GAIN_LEFT = 1.0; // medido el 8 nov con 2 UART: a igual orden giran igual (R/L = 0.99); recalibrar con carga
 const int STEER_SIGN = 1;                    // invertir si el giro sale al reves
 const int START_SPEED = 60;                  // el firmware pone a 0 todo < 50 (STAND_STILL_THRESHOLD)
