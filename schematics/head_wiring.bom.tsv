@@ -10,16 +10,16 @@ Id	Description	Qty	Unit	Designators
 9	Connector, Boton de paro (GPIO27 a GND), 2 pins	1		ESTOP
 10	Connector, Buck XL4015 12V a 5V (servo cabeceo), 4 pins	1		PWR2
 11	Connector, Buck XL4015 12V a 5V (servo giro), 4 pins	1		PWR
-12	Connector, Driver LEDs rojos (KSP2222A), 3 pins	1		LEDS
-13	Connector, ESP32 (ojos, CP2102), 13 pins	1		ESP32
-14	Connector, ESP32-WROOM (cuello/hoverboard, CP2102), 14 pins	1		ESP32N
-15	Connector, GY-521 (MPU-6050), 4 pins	1		IMU
-16	Connector, HC-SR04, 4 pins	1		SONAR
-17	Connector, Jetson Orin Nano, USB-A x2, 2 pins	1		JETSON
-18	Connector, Modulo 4 reles 5 V SRD-05VDC-SL-C (activo en BAJO), 8 pins	1		RELAY
-19	Connector, Placa DERECHA hoverboard (Gen2.x, SLAVE_ID 0), 5 pins	1		HOVER_R
-20	Connector, Placa IZQUIERDA hoverboard (Gen2.x, SLAVE_ID 1), 5 pins	1		HOVER_L
-21	Connector, SZDULI 180W 18-75V a 12V 15A, 4 pins	1		SZ
+12	Connector, DC-DC 60V a 12V 10A (120 W), 4 pins	1		SZ
+13	Connector, Driver LEDs rojos (KSP2222A), 3 pins	1		LEDS
+14	Connector, ESP32 (ojos, CP2102), 13 pins	1		ESP32
+15	Connector, ESP32-WROOM (cuello/hoverboard, CP2102), 14 pins	1		ESP32N
+16	Connector, GY-521 (MPU-6050), 4 pins	1		IMU
+17	Connector, HC-SR04, 4 pins	1		SONAR
+18	Connector, Jetson Orin Nano, USB-A x2, 2 pins	1		JETSON
+19	Connector, Modulo 4 reles 5 V SRD-05VDC-SL-C (activo en BAJO), 8 pins	1		RELAY
+20	Connector, Placa DERECHA hoverboard (Gen2.x, SLAVE_ID 0), 5 pins	1		HOVER_R
+21	Connector, Placa IZQUIERDA hoverboard (Gen2.x, SLAVE_ID 1), 5 pins	1		HOVER_L
 22	Connector, Servo (cabeceo), 3 pins	1		SERVO_TILT
 23	Connector, Servo MG996R (giro), 3 pins	1		SERVO_PAN
 24	Connector, TFT ST7735 1.8" (ojo derecho), 8 pins	1		TFT_R

@@ -36,17 +36,17 @@ connectors:
     type: Buck XL4015 12V a 5V (servo giro)
     pinlabels: [IN+, IN-, OUT+, OUT-]
     pins: [1,2,3,4]
-    notes: Entrada 12 V del modulo SZDULI. Ajustar 5.0-6.0 V y medir antes de conectar
+    notes: Entrada 12 V del convertidor 60 V a 12 V. Ajustar 5.0-6.0 V y medir antes de conectar
   PWR2:
     type: Buck XL4015 12V a 5V (servo cabeceo)
     pinlabels: [IN+, IN-, OUT+, OUT-]
     pins: [1,2,3,4]
     notes: Ajustar 5.0 V y medir antes de conectar
   SZ:
-    type: SZDULI 180W 18-75V a 12V 15A
+    type: DC-DC 60V a 12V 10A (120 W)
     pinlabels: [IN+, IN-, OUT+, OUT-]
     pins: [1,2,3,4]
-    notes: Fusible 8-10 A DC en IN+. Verificar colores con multimetro
+    notes: Fusible F2 5 A mini 58 V en IN+. Verificar entrada minima (30 V o menos) y colores con multimetro
   BAT:
     type: Bateria hoverboard 36V
     pinlabels: [POS, NEG]

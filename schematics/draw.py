@@ -39,6 +39,11 @@ class SVG:
         s.line([(x, y + 14), (x, y + 48)], "#999", 2); s.line([(x, y + 48), (x, y + 62)])
         s.text(x + 18, y + 36, label, 13, "start")
 
+    def fuse_s(s, x, y, label):  # fusible vertical compacto (40 px)
+        s.line([(x, y), (x, y + 8)]); s.add(f'<rect x="{x-8}" y="{y+8}" width="16" height="22" fill="#fff" stroke="{BLK}" stroke-width="3"/>')
+        s.line([(x, y + 8), (x, y + 30)], "#999", 2); s.line([(x, y + 30), (x, y + 40)])
+        s.text(x + 14, y + 24, label, 12, "start", RED, True)
+
     def fuse_h(s, x, y, label):
         s.line([(x, y), (x + 14, y)]); s.add(f'<rect x="{x+14}" y="{y-9}" width="34" height="18" fill="#fff" stroke="{BLK}" stroke-width="3"/>')
         s.line([(x + 14, y), (x + 48, y)], "#999", 2); s.line([(x + 48, y), (x + 62, y)])
@@ -100,27 +105,33 @@ class SVG:
         s.text(x + w / 2, y + 76, sub, 11, c="#fff")
         s.text(x + 8, y + 62, "IN+", 11, "start", "#ffcdd2"); s.text(x + w - 8, y + 62, "OUT+", 11, "end", "#ffcdd2")
 
+    def wago(s, x, y, label, w=44, ports=(-14, 0, 14), below=False):  # WAGO 221-413 (3 puertos)
+        s.add(f'<rect x="{x-w/2}" y="{y-11}" width="{w}" height="22" rx="3" fill="#eceff1" stroke="#455a64" stroke-width="2"/>')
+        for p in ports:
+            s.add(f'<rect x="{x+p-5}" y="{y-8}" width="10" height="16" rx="2" fill="#ef6c00" stroke="#bf360c" stroke-width="1"/>')
+        s.text(x, y + (30 if below else -16), label, 11, c="#bf360c", bold=True)
+
     def save(s, name):
         open(name, "w").write(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {s.w} {s.h}" width="{s.w}" height="{s.h}">'
                               f'<rect width="100%" height="100%" fill="#fff"/>{"".join(s.o)}</svg>')
 
 
 # =============== 1. POTENCIA ===============
-g = SVG(2250, 1020)
+g = SVG(2250, 1100)
 g.text(20, 34, "Calavera robotica - distribucion de potencia", 22, "start", bold=True)
 g.text(20, 58, "ESQUEMA DE PROPUESTA: valores a medir/verificar antes de energizar. Todas las masas son comunes (riel inferior).", 13, "start", GRY)
 BUS, GY = 130, 920
 g.battery(90, 400)
 g.line([(90, 320), (90, BUS)], RED); g.line([(90, 480), (90, GY)], BLK)
-g.fuse_h(90, BUS, "F1 15 A"); g.line([(90, BUS), (90, BUS)])
-g.switch_h(170, BUS, "INTERRUPTOR\nGENERAL 36 V DC")
+g.fuse_h(90, BUS, "F1 15 A mini 58 V"); g.line([(90, BUS), (90, BUS)])
+g.switch_h(170, BUS, "INTERRUPTOR GENERAL\n48 V / 200 A")
 g.line([(250, BUS), (800, BUS)], RED, 4); g.text(330, BUS - 12, "Bus +36 V", 14, "start", RED, True)
-g.line([(90, GY), (2130, GY)], BLK, 4); g.text(20, GY + 40, "GND comun", 13, "start", bold=True); g.gnd(90, GY)
+g.line([(90, GY), (2170, GY)], BLK, 4); g.text(20, GY + 40, "GND comun", 13, "start", bold=True); g.gnd(90, GY)
 
 # Rama A
 xa = 430
 g.text(xa, 100, "RAMA A - MOTORES", 15, c=GRY, bold=True)
-g.dot(xa, BUS, RED); g.line([(xa, BUS), (xa, BUS + 20)], RED)
+g.line([(xa, BUS), (xa, BUS + 20)], RED); g.wago(xa, BUS, "W1")
 g.estop(xa, BUS + 20)
 g.line([(xa, BUS + 100), (xa, 330)], RED)
 g.box(xa - 110, 330, 220, 130, "2 placas hoverboard", "derecha (ID 0) + izquierda (ID 1)", "#fff8e1")
@@ -136,45 +147,50 @@ g.text(165, 672, "(un rele por placa; pulso de 1 s)", 11, "start", GRY)
 g.line([(300, 560), (300, 415), (320, 415)], "#8e24aa", 3, "7 5")
 g.text(294, 500, "pulso\nal boton", 11, "end", "#6a1b9a", True)
 
-# Rama B: SZDULI 12 V -> servos, Jetson, hub
+# Rama B: convertidor 60 V -> 12 V -> servos, Jetson, hub
 xb = 800
 g.text(xb + 300, 100, "RAMA B - 12 V: SERVOS, CEREBRO Y HUB", 15, c=GRY, bold=True)
-g.dot(xb, BUS, RED); g.line([(xb, BUS), (xb, BUS + 20)], RED)
-g.fuse_v(xb, BUS + 20, "F2 8-10 A DC"); g.line([(xb, BUS + 82), (xb, 260)], RED)
-g.buck(xb - 130, 260, 260, "SZDULI 18-75 V -> 12 V", "15 A max (180 W) - fija 12 V")
+g.line([(xb, BUS), (xb, BUS + 20)], RED)
+g.fuse_v(xb, BUS + 20, "F2 5 A mini 58 V"); g.line([(xb, BUS + 82), (xb, 260)], RED)
+g.buck(xb - 130, 260, 260, "DC-DC 60 V -> 12 V", "10 A max (120 W) - fija 12 V")
 g.line([(xb - 130, 300), (xb - 190, 300), (xb - 190, GY)], BLK); g.dot(xb - 190, GY)
 g.line([(xb + 130, 300), (xb + 170, 300), (xb + 170, 420)], RED, 4)
 R12 = 420
-g.line([(xb + 170, R12), (2080, R12)], RED, 4); g.text(xb + 180, R12 - 10, "Riel +12 V (cond. 1000 uF)", 13, "start", RED, True)
+g.line([(xb + 170, R12), (2150, R12)], RED, 4); g.cap_v(2150, R12, "1000 uF"); g.line([(2150, R12 + 46), (2150, GY)], BLK); g.dot(2150, GY); g.text(xb + 180, R12 - 10, "Riel +12 V", 13, "start", RED, True)
 
 # un buck XL4015 por servo (12 V -> 5 V)
 R6 = 640
 for i, (nm, gp) in enumerate([("Servo GIRO", "GPIO13"), ("Servo CABECEO", "GPIO14")]):
     bx = 1100 + i * 330
-    g.dot(bx, R12, RED); g.line([(bx, R12), (bx, 460)], RED)
+    g.fuse_s(bx, R12, f"F{i+3} 3 A"); g.wago(bx, R12, f"W{i+2}")
     g.buck(bx - 110, 460, 220, f"XL4015 {i+1}: 12 V -> 5 V", "5 A - ajustar 5,0 V y medir")
     g.line([(bx - 110, 500), (bx - 215, 500), (bx - 215, GY)], BLK); g.dot(bx - 215, GY)
     g.line([(bx + 110, 500), (bx + 140, 500), (bx + 140, R6)], RED, 4)
     g.line([(bx - 90, R6), (bx + 140, R6)], RED, 4)
     cx = bx - 20
-    g.dot(cx, R6, RED); g.line([(cx, R6), (cx, 710)], RED)
+    WG = 830
+    g.line([(cx, R6), (cx, 710)], RED)
     g.cap_v(cx - 70, R6, "470-1000 uF"); g.line([(cx - 70, R6), (cx, R6)], RED)
-    g.line([(cx - 70, R6 + 46), (cx - 70, GY)], BLK); g.dot(cx - 70, GY)
+    g.wago(cx, R6, f"W{i+6}")
+    g.line([(cx - 70, R6 + 46), (cx - 70, WG)], BLK)
     g.servo(cx - 50, 710, nm, gp)
-    g.line([(cx + 70, 750), (cx + 70, GY)], "#6d4c41"); g.dot(cx + 70, GY)
+    g.line([(cx + 70, 750), (cx + 70, WG)], "#6d4c41")
+    g.wago(cx, WG, f"W{i+8}", 168, (-70, 0, 70))
+    g.line([(cx, WG + 11), (cx, 868), (bx - 215, 868)], BLK, 2, "6 4"); g.dot(bx - 215, 868)
+    g.text(cx, 886, "3er puerto: OUT- del buck (comun con su IN-)", 11, c=GRY)
     g.line([(cx + 98, 710), (cx + 98, 680)], ORG, 3); g.text(cx + 98, 672, f"senal {gp}", 11, "middle", ORG, True)
 g.text(1640, 790, "Servos: V+ y GND\nsolo de su buck,\nNO del ESP32", 11, c=GRY)
 
 # Jetson
 xj = 1790
-g.dot(xj, R12, RED); g.line([(xj, R12), (xj, 470)], RED)
-g.box(xj - 100, 470, 200, 110, "Jetson Orin Nano", "jack DC (12 V, polaridad a medir)", "#e8f5e9", "#2e7d32")
+g.fuse_s(xj, R12, "F5 5 A"); g.wago(xj, R12, "W4"); g.line([(xj, R12 + 40), (xj, 470)], RED)
+g.box(xj - 100, 470, 200, 110, "Jetson Orin Nano", "jack DC 12 V, ~2 A medidos\n(polaridad a medir)", "#e8f5e9", "#2e7d32")
 g.text(xj, 562, "4 USB -> hub alimentado", 11, c=GRY)
 g.line([(xj, 580), (xj, GY)], BLK); g.dot(xj, GY)
 
 # hub
 xh = 2010
-g.dot(xh, R12, RED); g.line([(xh, R12), (xh, 460)], RED)
+g.fuse_s(xh, R12, "F6 2 A (opc.)"); g.wago(xh, R12, "W5")
 g.buck(xh - 70, 460, 140, "12 V -> 5 V", "OPCIONAL")
 g.line([(xh - 70, 500), (xh - 100, 500), (xh - 100, GY)], BLK); g.dot(xh - 100, GY)
 g.line([(xh + 70, 500), (xh + 95, 500), (xh + 95, 600)], RED, 3)
@@ -182,6 +198,12 @@ g.box(xh - 70, 600, 140, 70, "Hub USB", "por la Jetson (o buck)", "#e8f5e9", "#2
 g.line([(xh - 35, 670), (xh - 35, GY)], BLK); g.dot(xh - 35, GY)
 g.text(xh, 700, "-> C922, ESP32 ojos,\nESP32 cuello, parlantes", 11, c=GRY)
 
+# WAGO de la masa comun: cadena de 3 puertos (entrada, carga, salida); los de los extremos llevan 2 cargas
+for x, l in [(245, "W10"), (460, "W11"), (585, "W12"), (635, "W13"), (885, "W14"), (1215, "W15"), (1560, "W16"), (1790, "W17"), (2030, "W18")]:
+    g.wago(x, GY, l, below=True)
+g.line([(1560, 898), (1560, GY)], BLK); g.text(1560, 878, "GND ESP32\ncuello", 11, c=GRY)
+g.text(438, 700, "2 cables\n(una por placa)", 11, "start", GRY)
+g.text(618, 700, "IN- y OUT- del conv.\n(2 cables, verificar)", 11, "start", GRY)
 # leyenda
 g.line([(20, 985), (60, 985)], RED, 4); g.text(70, 990, "+ (36 / 12 / 5 V)", 12, "start")
 g.line([(240, 985), (280, 985)], BLK, 4); g.text(290, 990, "GND comun", 12, "start")
@@ -193,15 +215,18 @@ def awg(x, y, t, anchor="start"):
 awg(100, 230, "14 AWG")            # bateria -> interruptor
 awg(520, BUS - 24, "14 AWG")       # bus 36 V
 awg(442, 300, "14 AWG")            # rama A al hoverboard
-awg(812, 215, "14 AWG")            # rama B a SZDULI
+awg(812, 215, "14 AWG")            # rama B al convertidor 12 V
 awg(1010, R12 - 28, "16 AWG")      # riel 12 V
 for i in range(2):
     bx = 1100 + i * 330
-    awg(bx + 6, 442, "16 AWG")     # entrada del buck
+    awg(bx - 8, 442, "16 AWG", "end")     # entrada del buck
     awg(bx + 148, 590, "18 AWG")   # salida del buck al servo
 awg(xj + 6, 445, "16 AWG")         # Jetson
 awg(120, GY - 14, "14 AWG")        # retorno de masa principal
 g.add('<text x="20" y="1006" font-size="12" fill="#555" font-family="Helvetica,Arial,sans-serif">Calibres: 14 AWG = 36 V (hasta 15 A) | 16 AWG = riel 12 V | 18 AWG = 5 V a servos | 20-22 AWG = masa corta y senales</text>')
+g.text(20, 1040, "WAGO 221-413 (3 puertos): 18 en total", 14, "start", bold=True)
+g.text(20, 1060, "W1 reparto de 36 V (1) | W2-W5 riel +12 V en cadena: XL4015 1, XL4015 2, Jetson, buck del hub + cond. 1000 uF (4; 3 si no montas el buck del hub: el cond. va al puerto libre de W4)", 12, "start", GRY)
+g.text(20, 1078, "W6-W7 +5 V de cada servo (2) | W8-W9 GND de cada servo (2) | W10-W18 masa comun, 11 cables: bateria, 2 placas, convertidor IN-/OUT- x2, XL4015 x2, ESP32, Jetson, buck hub, cond. riel (9). Con WAGO de 5 puertos (221-415) la masa baja a 3.", 12, "start", GRY)
 g.save("power_diagram.svg")
 
 # =============== 2. SENALES ESP32 CUELLO ===============
@@ -418,7 +443,7 @@ for c1, c2, nm in [("M", "L", "C1"), ("Q", "R", "C2")]:
 zy = Y0 + 17 * P + 60
 b.text(X0 - 20, zy - 8, "16 zonas planas para soldar (entradas de potencia). Asignacion sugerida:", 13, "start", bold=True)
 zones = [("Z1", "+5V buck GIRO", RED), ("Z2", "GND buck GIRO", BLK), ("Z3", "+5V buck CABECEO", RED), ("Z4", "GND buck CABECEO", BLK),
-         ("Z5", "GND masa comun\n(SZDULI OUT-)", BLK), ("Z6", "GND hoverboard", BLK), ("Z7", "+5V reles\n(de VIN, R13)", RED), ("Z8", "libre", GRY)]
+         ("Z5", "GND masa comun\n(conv. 12 V OUT-)", BLK), ("Z6", "GND hoverboard", BLK), ("Z7", "+5V reles\n(de VIN, R13)", RED), ("Z8", "libre", GRY)]
 zones += [(f"Z{i}", "libre", GRY) for i in range(9, 17)]
 for i, (z, t, col) in enumerate(zones):
     x = X0 - 20 + (i % 8) * 128; y = zy + (i // 8) * 70
