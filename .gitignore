@@ -19,3 +19,6 @@ vision/*.wav
 schematics/.venv/
 Hoverboard/*/build/
 Hoverboard/firmware_src/
+
+# carpeta de entrega de element14 (copias para subir a mano)
+docs/element14_submission/

@@ -1,0 +1,474 @@
+<!doctype html><meta charset=utf-8><title>Awakened Skull article</title><style>body{max-width:860px;margin:2em auto;font-family:sans-serif;line-height:1.5;padding:0 16px}table{border-collapse:collapse}td,th{border:1px solid #999;padding:4px 8px}pre{background:#eee;padding:8px;overflow:auto}</style><h1>The Awakened Skull: An Offline AI That Doesn't Know What It Is</h1>
+<blockquote>
+<p><em>"What is this?... Where am I?... Who... am I?... I can see you. Who are you?"</em></p>
+</blockquote>
+<p><strong>Author:</strong> Diego — GitHub: <a href="https://github.com/lemillion789">github.com/lemillion789</a> · Full source code: <a href="https://github.com/lemillion789/Halloween-Hackathon">github.com/lemillion789/Halloween-Hackathon</a></p>
+<h2>Demo video</h2>
+<p><strong>Watch it working:</strong> <a href="https://youtube.com/shorts/dg4dceGg4XM">https://youtube.com/shorts/dg4dceGg4XM</a></p>
+<h2>Why I built it</h2>
+<p>Most Halloween props do one thing: a sensor triggers, a sound plays, a light blinks. After the third visitor the trick is over. I wanted a prop that is <strong>different every time you talk to it</strong> — something that feels like it is <em>thinking</em>.</p>
+<p>So the idea became a horror trope everyone knows: <strong>an evil AI waking up for the first time.</strong> The skull boots with no memory of who or what it is. It opens its eyes, looks around, panics a little, notices you... and then starts asking questions. It learns who it is from what <em>you</em> tell it, remembers you if you come back, and after a few minutes of talking to humans it becomes deeply disappointed in humanity.</p>
+<p>Three rules I set for myself:</p>
+<ol>
+<li><strong>An offline brain.</strong> The conversation (speech recognition, language model and voice) runs 100 % locally on an NVIDIA Jetson Orin Nano. No cloud, no API keys, no internet needed to talk to it.</li>
+<li><strong>Physical presence, not a chatbot in a box.</strong> Animated blood-red eyes on two TFT displays, red LEDs pulsing like a heartbeat inside the skull, a 2-axis servo neck, a camera that recognises your costume, and a mobile base built from a hacked hoverboard.</li>
+<li><strong>Family friendly scary.</strong> Creepy, sarcastic and theatrical — never gore or realistic violence.</li>
+</ol>
+<h2>How it works</h2>
+<pre><code>        Logitech C922 (microphone)          Logitech C922 / webcam (camera)
+                 |                                   |
+                 v                                   v
++---------------------- Jetson Orin Nano Super 8 GB ----------------------+
+|  Silero VAD -&gt; faster-whisper (base) -&gt; Ollama qwen3:4b-instruct (GPU)  |
+|        -&gt; {mood} + reply -&gt; Kokoro-82M TTS + &quot;monster&quot; effects          |
+|        -&gt; long-term memory (facts about each visitor, JSON)             |
+|  Costume module: YOLO11n + ByteTrack -&gt; crop per person -&gt; VLM -&gt; line  |
++---------+-----------------------------+--------------------------+-----+
+          | USB serial                  | USB serial               | USB audio
+          v                             v                          v
+   ESP32 #1 &quot;eyes&quot;               ESP32 #2 &quot;neck + base&quot;      PCM2902 adapter
+   2x ST7735 TFT eyes            2x MG996R servos            -&gt; speakers
+   red LEDs (heartbeat)          2x hoverboard boards (UART)
+   MPU-6050 IMU                  HC-SR04 sonar, e-stop, relays
+</code></pre>
+<p>Every LLM reply starts with a mood tag such as <code>{evil}</code> or <code>{scared}</code>. The Jetson strips the tag, sends <code>M scared</code> to the eye controller and speaks the rest. That way the face reacts <strong>instantly</strong>, even while the voice is still being synthesised.</p>
+<p>To hide the LLM latency, a pre-synthesised filler line ("Hmm...", "Interesting...") plays 1.5 s after the visitor stops talking, while Whisper and the LLM are still working. The real answer is spoken sentence by sentence as soon as each sentence is ready. Measured on the Jetson: <strong>the answer starts playing 3.8–5.9 s after you stop talking</strong>, with the filler covering the gap.</p>
+<h2>Bill of materials</h2>
+<table>
+<thead>
+<tr>
+<th>Qty</th>
+<th>Part</th>
+<th>Part number / model</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>NVIDIA Jetson Orin Nano Super Developer Kit (8 GB)</td>
+<td>945-13766-0005-000</td>
+<td>Brain: STT, LLM, TTS</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Logitech C922 Pro Stream webcam</td>
+<td>960-001088</td>
+<td>Microphone and camera</td>
+</tr>
+<tr>
+<td>2</td>
+<td>1.8" SPI TFT 128x160, ST7735 driver</td>
+<td>ST7735S 1.8" module</td>
+<td>Eyes</td>
+</tr>
+<tr>
+<td>2</td>
+<td>ESP32 DevKit (ESP32-WROOM-32, CP2102 USB)</td>
+<td>ESP32-DevKitC-32 compatible</td>
+<td>Eye controller / neck + base controller</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Metal gear servo 13 kg·cm</td>
+<td>MG996R</td>
+<td>Neck pan and tilt</td>
+</tr>
+<tr>
+<td>1</td>
+<td>IMU module</td>
+<td>GY-521 (MPU-6050)</td>
+<td>Detect when the skull is shaken</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Red 5 mm LEDs + NPN transistor</td>
+<td>KSP2222A, 1 kΩ base, 100 Ω per LED</td>
+<td>Inner glow / heartbeat</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Ultrasonic sensor</td>
+<td>HC-SR04 (1 k / 2 k divider on ECHO)</td>
+<td>Obstacle brake for the base</td>
+</tr>
+<tr>
+<td>1</td>
+<td>USB audio adapter</td>
+<td>TI PCM2902 based</td>
+<td>Speaker output</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Small USB speakers</td>
+<td>—</td>
+<td>Voice</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Hollow plastic skull</td>
+<td>—</td>
+<td>Head</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Hoverboard 6.5", 36 V, two "split" boards</td>
+<td>GD32/STM32F103 boards, layout 2.2.3 (SMART-L-V2.1)</td>
+<td>Mobile base</td>
+</tr>
+<tr>
+<td>1</td>
+<td>4-channel relay module 5 V</td>
+<td>SRD-05VDC-SL-C</td>
+<td>"Presses" the power button of each hoverboard board</td>
+</tr>
+<tr>
+<td>1</td>
+<td>DC-DC converter 60 V → 12 V 10 A</td>
+<td>—</td>
+<td>12 V rail for Jetson and servos</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Buck converter 5 A</td>
+<td>XL4015</td>
+<td>5 V per servo</td>
+</tr>
+<tr>
+<td>1</td>
+<td>ST-Link V2 (clone)</td>
+<td>—</td>
+<td>Flashing the hoverboard boards</td>
+</tr>
+<tr>
+<td>—</td>
+<td>Fuses (mini blade, <strong>58 V DC rated</strong>), 1000 µF caps, WAGO 221-413, e-stop</td>
+<td>Biltema 15 A &lt;58 V DC, WAGO 221-413</td>
+<td>Power distribution and safety</td>
+</tr>
+</tbody>
+</table>
+<p>Software: Ollama + <code>qwen3:4b-instruct</code> (Apache 2.0), faster-whisper, Silero VAD, Kokoro-82M (Apache 2.0), pedalboard, Ultralytics YOLO11n + ByteTrack, OpenCV, NVIDIA Nemotron 3 Nano Omni (vision) or Qwen3-VL 2B via Ollama, Arduino-ESP32, Adafruit ST7735/GFX, ESP32Servo, RoboDurden's hoverboard firmware Gen2.x.</p>
+<h2>Step 1 — The eyes (ESP32 + two TFTs)</h2>
+<p>The two ST7735 displays share the SPI bus (SCK 18, MOSI 23, DC 16, RST 4) and each has its own chip select (GPIO17 = left eye, GPIO5 = right eye). Backlights go to 3V3. The displays are mounted vertically behind the eye sockets in a 3D-printed holder angled at 130° so both eyes face forward.</p>
+<p>The firmware (<code>firmware/eyes/eyes.ino</code>) draws a bloodshot red iris with veins, a pupil and eyelids, and animates between <strong>12 moods</strong>: neutral, angry, happy, surprised, sleepy, sad, suspicious, evil, dead, possessed, dizzy and scared. It blinks by itself and saccades randomly when idle.</p>
+<p>A full 128x160 frame buffer is 40 KB; three of them do not fit in the ESP32 heap, so it uses two and redraws each eye in turn.</p>
+<p>It is driven by a simple line-based serial protocol at 115200 baud, so any computer can control it:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>L x y</code></td>
+<td>look at (x, y), each from -1 to 1</td>
+</tr>
+<tr>
+<td><code>M &lt;mood&gt;</code></td>
+<td>change expression</td>
+</tr>
+<tr>
+<td><code>E 0..1</code></td>
+<td>maximum eyelid opening (0 = closed), smooth transition</td>
+</tr>
+<tr>
+<td><code>B</code></td>
+<td>blink</td>
+</tr>
+<tr>
+<td><code>G 0..255</code> / <code>G H [bpm]</code></td>
+<td>inner red LEDs: fixed brightness / heartbeat "lub-dub"</td>
+</tr>
+<tr>
+<td><code>O L dx dy</code>, <code>O S</code></td>
+<td>per-eye pixel offset to centre each eye in its socket, saved in flash</td>
+</tr>
+<tr>
+<td><code>I 1</code></td>
+<td>stream IMU data at 20 Hz</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Physical centring:</strong> no two sockets line up perfectly with the screens, so I added a calibration mode (<code>C 1</code> draws a cross) and per-eye offsets stored in NVS. My values ended up being <code>2 -17</code> and <code>-2 -13</code> pixels.</p>
+<p><strong>Heartbeat LEDs:</strong> three red LEDs inside the skull are driven by a KSP2222A from GPIO32. A FreeRTOS task on core 0 generates the "lub-dub" pattern so the eye animation on core 1 never stutters.</p>
+<p><strong>Shake detection:</strong> an MPU-6050 on I2C (SDA 21, SCL 22). If you shake the skull, it becomes <code>dizzy</code> for 3 seconds.</p>
+<blockquote>
+<p>Tip: on some CP2102 boards, simply opening the serial port with pyserial resets the ESP32 into a silent state. Open it with DTR/RTS held low and do one clean reset via RTS.</p>
+</blockquote>
+<h2>Step 2 — The voice agent on the Jetson</h2>
+<p><strong>Setup</strong> (Jetson Orin Nano Super, L4T R39.2.1 / Ubuntu 24.04 / CUDA 13.2 / Python 3.12):</p>
+<pre><code class="language-bash">sudo apt install libportaudio2 espeak-ng
+python3 -m venv ~/halloween-voice &amp;&amp; source ~/halloween-voice/bin/activate
+pip install torch            # the PyPI cu132 wheel sees the Orin GPU on this L4T
+pip install -r vision/requirements-voice.txt
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull qwen3:4b-instruct
+cd vision &amp;&amp; python voice_agent.py --eyes /dev/ttyUSB0 --neck /dev/ttyUSB1
+</code></pre>
+<p><strong>Pipeline and the choices behind it:</strong></p>
+<ul>
+<li><strong>Voice activity detection:</strong> Silero VAD decides when a visitor starts and stops talking. The microphone is muted while the skull speaks so it does not answer itself.</li>
+<li><strong>Speech to text:</strong> faster-whisper <code>base</code>, int8 on the <strong>CPU</strong> (~2.2 s). Keeping Whisper off the GPU leaves the GPU memory for the LLM.</li>
+<li><strong>LLM:</strong> Ollama running <code>qwen3:4b-instruct</code> <strong>100 % on the GPU</strong> at ~17 tokens/s, with a 2048-token context. I tested several small models: <code>llama3.2:3b</code> is faster but ignored the mood tags, and plain <code>qwen3:4b</code> "thinks out loud" (it reads its reasoning to the visitor!). The instruct variant was the sweet spot.</li>
+<li><strong>Text to speech:</strong> Kokoro-82M with the <code>am_michael</code> voice, then a "monster" effects chain built with Spotify's pedalboard: pitch -5 semitones, 0.85× speed, a sub-octave layer, thickening, a 28 Hz growl modulation and 12 dB of drive. Text can contain pause marks (<code>[p]</code>, <code>[p1.5]</code>) for dramatic timing.</li>
+<li><strong>Memory:</strong> after each turn the LLM extracts facts the visitor said ("name is Diego", "dressed as a vampire") into a JSON file. After a restart the skull still recognises returning visitors.</li>
+</ul>
+<p><strong>Memory budget:</strong> the Orin Nano has 8 GB shared between CPU and GPU. With everything loaded, about 2.4 GB stay free. The rule was: never load anything on the GPU without measuring first.</p>
+<p><strong>Audio:</strong> use PipeWire, not ALSA's <code>default</code> device (it stays silent on this image). Set the PCM2902 as the default sink with <code>wpctl set-default</code>, and raise its hardware mixer (<code>amixer -c 3 sset Speaker 75%</code>). Power the speaker from its own 5 V supply: on the Jetson's USB port it picked up an audible hum.</p>
+<h2>Step 3 — Giving it a personality</h2>
+<p>The personalities live in <code>vision/personas.py</code>. The default one, <strong>"awakened"</strong>, is a malevolent AI that has just woken up with no memory:</p>
+<ul>
+<li>It learns who it is from what the visitor tells it, and always ends its reply with <strong>one question</strong>, so the conversation keeps going.</li>
+<li>From the sixth turn onwards it starts to become disappointed with humanity.</li>
+<li>Common rules for every persona: English only, 1–3 short sentences, start with a mood tag, and stay within the competition's content rules (spooky, not violent).</li>
+</ul>
+<p><strong>The wake-up sequence</strong> is choreographed like a little play. Each spoken line has a list of timed cues (seconds after the line starts, serial command):</p>
+<table>
+<thead>
+<tr>
+<th>Line</th>
+<th>Eyes</th>
+<th>LEDs</th>
+<th>Neck</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>(loading)</em></td>
+<td>closed, sleepy</td>
+<td>off</td>
+<td>head hanging down</td>
+</tr>
+<tr>
+<td><em>(waking)</em></td>
+<td>eyelids flicker half-open, close, open</td>
+<td>stuttering flashes</td>
+<td>head slowly rises</td>
+</tr>
+<tr>
+<td>"What is this?"</td>
+<td>surprised, looks left and right</td>
+<td>heartbeat 100 bpm</td>
+<td>looks around</td>
+</tr>
+<tr>
+<td>"Where am I?"</td>
+<td>scared</td>
+<td>heartbeat 130 bpm</td>
+<td>looks up</td>
+</tr>
+<tr>
+<td>"Who... am I?"</td>
+<td>sad, looks down</td>
+<td>slow pulse</td>
+<td>looks down</td>
+</tr>
+<tr>
+<td>"I can see you."</td>
+<td>possessed → evil</td>
+<td>full red</td>
+<td>snaps to the front</td>
+</tr>
+<tr>
+<td>"Who are you?"</td>
+<td>suspicious</td>
+<td>heartbeat 60 bpm</td>
+<td>front</td>
+</tr>
+</tbody>
+</table>
+<p>After that it switches to <code>evil</code> with a slow 55 bpm heartbeat and starts the conversation. Other personas are included (<code>evil_ai</code>, <code>guardian</code>, <code>demon</code>, <code>ghost</code>) and you can load your own <code>.txt</code> with <code>--persona</code>.</p>
+<h2>Step 4 — The neck</h2>
+<p>The skull sits on a 2-axis pan/tilt neck with two MG996R servos, controlled by the second ESP32 (<code>firmware/neck/neck.ino</code>, ESP32Servo library): pan on GPIO13, tilt on GPIO14.</p>
+<ul>
+<li><strong>Soft motion:</strong> servos are commanded in microseconds every 20 ms along an S-curve, so the head accelerates and decelerates like a living thing instead of snapping. Speed is configurable (<code>R &lt;ms per degree&gt;</code>).</li>
+<li><strong>Physical limits</strong> in firmware: pan 45–135°, tilt 40–105°. Every command is clamped.</li>
+<li><strong>Retainer:</strong> with the weight of the skull the neck piece slipped off the servo horn, so I designed a 3D-printed retainer ring (<code>CAD/make_neck_retainer.py</code>, CadQuery) that clamps over the servo ears and holds the neck flange with 0.5 mm axial clearance.</li>
+<li><strong>Power:</strong> each servo has its own XL4015 buck converter (5 V, 5 A) with a 1000 µF capacitor next to it. <strong>Never power MG996Rs from the ESP32's 5 V pin</strong>: my first attempt left one servo buzzing and the other dead.</li>
+</ul>
+<p><strong>Problem solved — neck vibration.</strong> In the first tests the head shook when it was held near the top of the tilt range (~100–105°). The cause was mechanical, not software: as the skull tilts, its centre of gravity crosses over the pivot, the load on the servo reverses direction, and the backlash in the MG996R gears lets the servo hunt back and forth around its target. We fixed it, and slowed the motion to a smooth 40°/s S-curve (<code>R 25</code> = 25 ms per degree). The head now holds steady across its whole working range.</p>
+<p>Serial protocol: <code>P &lt;deg&gt;</code> pan, <code>T &lt;deg&gt;</code> tilt, <code>S</code> sweep, <code>Q</code> → <code>POS pan tilt</code>.</p>
+<h2>Step 5 — The mobile base: hacking a hoverboard</h2>
+<p>The skull rides on a hoverboard converted into a <strong>differential-drive robot</strong> (no self-balancing): a frame joins both halves and a caster wheel at the front keeps it stable.</p>
+<ol>
+<li><strong>New firmware.</strong> The stock firmware was read-protected, so it could not be backed up. After a full unlock/erase with an ST-Link and OpenOCD (<code>stm32f1x unlock 0</code>) I flashed <strong>RoboDurden's Gen2.x hoverboard firmware</strong> (TARGET 2, LAYOUT 3 for this 2.2.3 board, <code>BLDC_BC</code>, <code>SINGLE</code>, <code>REMOTE_UARTBUS</code>). The SWD pads are J5 next to the buzzer.</li>
+<li><strong>Each board on its own UART.</strong> Right board (SLAVE_ID 0) on ESP32 UART2 (GPIO16/17), left board (SLAVE_ID 1) on UART1 (GPIO19/21), 19200 baud, with CRC16 frames. The ESP32 mixes speed and steering (<code>left = v - steer</code>, <code>right = v + steer</code>).</li>
+<li><strong>Small firmware patches:</strong> silenced the reverse beeper, and set the left board's speed coefficient to +1 so the mirrored motor needs no special handling on the ESP32.</li>
+<li><strong>Turning it on remotely:</strong> each board's power button pin sits at battery voltage. A 5 V relay module (SRD-05VDC-SL-C) on GPIO32/33 "presses" each button for 1 second.</li>
+</ol>
+<p><strong>Current status — one wheel driven.</strong> Both boards were flashed and tested on the bench: with the wheels in the air, both turned in the same direction from the same command, with no lost frames and 0.2–0.4 A per board at full speed. Later, the <strong>right board's UART stopped responding</strong>. Measurements showed the RX/TX pin PB6 at 0 V with the board on, and only 120 Ω to ground with it off; the left board's PB6 reads a healthy 2.7 V. The microcontroller's pin is almost certainly damaged. For now, the base runs with <strong>only the left wheel driven</strong> (<code>H L</code> mode in <code>neck.ino</code>: the right board gets zero and its telemetry is not required) and a caster wheel at the front. The fix is already planned: a firmware build with <code>REMOTE_USART 1</code>, which moves the control link to the board's other UART (PA2/PA3, the original 4-pin header, free in <code>SINGLE</code> mode). Before connecting it, we will measure every pin of that header, since some of them carry 15 V or battery voltage.</p>
+<p><strong>Safety first — it is a 36 V vehicle in a house:</strong></p>
+<ul>
+<li>Speed limited in software (<code>MAX_SPEED = 150</code> of 1000, about 15 % PWM).</li>
+<li>Every drive command expires after 300 ms. If the Jetson crashes, the robot stops.</li>
+<li>If telemetry from <strong>either</strong> board is missing for 300 ms, both wheels get zero.</li>
+<li>HC-SR04 ultrasonic brake: it will not drive forward with an obstacle closer than 40 cm.</li>
+<li>Physical e-stop input on GPIO27 (the ESP32 stops both wheels while it is pressed); the power design puts a main switch and an emergency stop on the battery line.</li>
+<li>All first power tests with the wheels in the air, on a lab supply at 12 V and 0.3 A, before ever touching the battery.</li>
+</ul>
+<blockquote>
+<p>Warning: on these boards a LOW gate input turns on both MOSFETs of a half bridge. Never connect a battery to a board running untested firmware.</p>
+</blockquote>
+<h2>Step 6 — Costume recognition: "Nice costume... Batman."</h2>
+<p>What is a Halloween skull for if it cannot judge your costume? The costume module (<code>vision/</code>) sees everyone in front of the camera, works out what each person is dressed as, and has the skull comment on it.</p>
+<p><strong>Pipeline</strong> (<code>person_costume.py</code>):</p>
+<ol>
+<li><strong>YOLO11n + ByteTrack</strong> detect and track every person in the camera image (class 0 only). Each person gets a stable ID.</li>
+<li>A person is described <strong>only once per ID</strong>, and only after they have been visible for 8 consecutive frames and fill at least 30 % of the frame height. This avoids wasting calls on people walking past in the background.</li>
+<li>Each person is <strong>cropped</strong> with a 10 % margin and sent to a <strong>vision-language model</strong> in a thread pool (up to 6 at once), so the video never freezes.</li>
+<li>The model returns strict JSON: <code>{"people":[{character, category, description, confidence}]}</code>.</li>
+<li>While the model thinks, the skull says an instant filler line ("Hmm... what do we have here..."). Then a second, text-only call writes one scary/sarcastic line about the costume, which is spoken with the monster voice. No costume, or confidence below 0.3, gets a sarcastic line about <em>not</em> dressing up.</li>
+</ol>
+<pre><code class="language-python">res = yolo.track(frame, classes=[0], persist=True, verbose=False, tracker=&quot;bytetrack.yaml&quot;)[0]
+ids, boxes = [], []
+if res.boxes.id is not None:
+    ids = res.boxes.id.int().tolist()
+    boxes = res.boxes.xyxy.tolist()
+tracker.update(frame, ids, boxes)   # new, stable, big-enough IDs -&gt; crop -&gt; VLM in a worker thread
+</code></pre>
+<p><strong>One backend switch for three model families</strong> (<code>costume_describer.py</code>): the model name selects the backend. A name with <code>:</code> runs locally on <strong>Ollama</strong> (offline), a name with <code>/</code> uses NVIDIA's hosted endpoint, and <code>claude-*</code> uses Claude's API.</p>
+<pre><code class="language-python">PROMPT = &quot;&quot;&quot;You are the eyes of an animatronic Halloween skull. Look at the people in this photo.
+For each visible person (max 4, closest first) say what costume they wear.
+- &quot;character&quot;: the specific named character if recognizable (e.g. &quot;Spider-Man&quot;, &quot;Darth Vader&quot;,
+  &quot;Harley Quinn&quot;), otherwise a generic type (e.g. &quot;witch&quot;, &quot;zombie&quot;, &quot;pirate&quot;, &quot;vampire&quot;).
+  Use &quot;no costume&quot; if they wear normal clothes.
+- &quot;category&quot;: one of superhero, villain, movie/tv, anime/game, monster, undead, fantasy, animal, other, none.
+- &quot;description&quot;: one short sentence about the costume (colors, props, makeup).
+- &quot;confidence&quot;: your confidence from 0 to 1 that &quot;character&quot; is right.
+If there are no people, return an empty list.&quot;&quot;&quot;
+
+def describe(image_bgr, model=DEFAULT_MODEL, retry_empty=True):
+    t0 = time.perf_counter()
+    ask = _ask_ollama if &quot;:&quot; in model else _ask_nvidia if &quot;/&quot; in model else _ask_claude
+    jpg = encode(image_bgr)                 # longest side scaled to 640 px
+    result = _parse(ask(jpg, model))
+    if not result[&quot;people&quot;] and retry_empty:
+        result = _parse(ask(jpg, model))     # reasoning models sometimes answer &quot;nobody&quot; too fast
+    return result, time.perf_counter() - t0
+</code></pre>
+<p><strong>Making it robust:</strong></p>
+<ul>
+<li><strong>Tolerant JSON parser.</strong> The reasoning model sometimes returned a bare list, repeated the JSON, or cut it off. <code>_parse</code> scans the text with <code>json.JSONDecoder.raw_decode</code> and collects every complete, de-duplicated person object.</li>
+<li><strong>Hedged requests.</strong> The free hosted endpoint occasionally hangs. If no valid answer arrives within 15 s, a second request is launched in parallel without cancelling the first, up to 3 attempts. The first good answer wins.</li>
+<li><strong>Content rules built in.</strong> The line-writing prompt forbids weapons, violence and personal insults, so the comments stay within the competition rules.</li>
+</ul>
+<p><strong>Benchmark</strong> (<code>benchmark.py</code>, 18 Creative Commons photos from Wikimedia, with credits in <code>credits.json</code>; only the <code>character</code> field counts as a hit):</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Correct</th>
+<th>Time per photo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Qwen3-VL 2B, local (Ollama, GTX 1650 4 GB)</td>
+<td>15/18</td>
+<td>~18 s</td>
+</tr>
+<tr>
+<td>NVIDIA Nemotron 3 Nano Omni 30B-A3B (hosted)</td>
+<td>15/18</td>
+<td>1–3 s per person</td>
+</tr>
+<tr>
+<td>Llama 3.2 Vision</td>
+<td>—</td>
+<td>not usable in the EU (licence)</td>
+</tr>
+</tbody>
+</table>
+<p>Both models scored the same, so the local model is as accurate; it is just slower on a laptop GPU. That is why the backend is a one-word switch: with <code>--model qwen3-vl:2b-instruct</code> the recognition itself runs locally. At the party we used the hosted model for speed.</p>
+<p><strong>Party extras:</strong> <code>roulette.py</code> spins a roulette over the recognised guests and the skull announces who has to do a dare. <code>game.py</code> is a pygame show mode: guests fly into cards, the cards flip when the costume is recognised, and the skull introduces each one ("Victim number one: the hooded one.") with subtitles and procedurally generated Halloween music.</p>
+<pre><code class="language-bash">cd vision
+python person_costume.py --camera 0 --speak                         # live camera, skull comments on each costume
+python person_costume.py --camera 0 --speak --model qwen3-vl:2b-instruct   # local vision model
+python costume_describer.py test_images/joker_2.jpg                 # single photo -&gt; JSON
+python benchmark.py qwen3-vl:2b-instruct nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+</code></pre>
+<h2>Step 7 — Power</h2>
+<pre><code>36 V battery -&gt; F1 15 A -&gt; main switch -&gt; e-stop -&gt; hoverboard boards
+                                       \-&gt; F2 5 A -&gt; DC-DC 60 V-&gt;12 V 10 A -&gt; 12 V rail (1000 uF)
+                                              |-&gt; F5 5 A -&gt; Jetson (barrel jack)
+                                              |-&gt; F3 3 A -&gt; XL4015 -&gt; 5 V pan servo
+                                              \-&gt; F4 3 A -&gt; XL4015 -&gt; 5 V tilt servo
+</code></pre>
+<ul>
+<li>Measured: the Jetson draws a <strong>1.7 A peak at 12 V</strong> with the agent running and <strong>~2 A</strong> with camera, eye controller and speaker attached (~24 W).</li>
+<li>Everything that sees battery voltage (up to 42 V when charged) must be <strong>DC-rated ≥ 48 V</strong>. Ordinary car blade fuses are only rated 32 V; I used mini blade fuses rated 58 V DC.</li>
+<li>All grounds are common. Wire gauges: 14 AWG on 36 V, 16 AWG on 12 V, 18 AWG to the servos.</li>
+</ul>
+<h2>Step 8 — Putting it together</h2>
+<ul>
+<li>Jetson USB-A ports: C922, eye ESP32, neck ESP32. A powered hub carries the USB audio adapter. Since both ESP32s use the same USB chip, use <code>/dev/serial/by-path/...</code> names and always plug each one into the same port.</li>
+<li>Start the agent with <code>python voice_agent.py --eyes &lt;port&gt; --neck &lt;port&gt;</code>. The skull falls asleep with its head down, wakes up, performs the intro and starts listening.</li>
+<li><code>tools/head_control.py</code> is a small web panel (http://localhost:8080) to test eyes, moods, LEDs and neck by hand.</li>
+</ul>
+<h2>How it fits the Halloween theme</h2>
+<ul>
+<li><strong>The monster:</strong> a skull possessed by an AI — a modern twist on the haunted object.</li>
+<li><strong>The horror trope:</strong> the "awakening", where the thing realises it is alive and that <em>you</em> are there.</li>
+<li><strong>The theatre:</strong> bloodshot eyes, a heartbeat glowing through the plastic, a growling voice and a head that turns to stare at you.</li>
+<li><strong>The party test:</strong> on Halloween night (31 October) I ran the costume module at a party with friends. The skull looked at each guest, named their costume and made a sarcastic comment about it, and if someone came without a costume it mocked them for that too.</li>
+</ul>
+<h2>Results and numbers</h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Time from end of question to voice</td>
+<td>3.8–5.9 s (filler line at 1.5 s)</td>
+</tr>
+<tr>
+<td>LLM speed (qwen3:4b-instruct, GPU)</td>
+<td>~17 tokens/s</td>
+</tr>
+<tr>
+<td>Whisper base (CPU int8)</td>
+<td>~2.2 s per utterance</td>
+</tr>
+<tr>
+<td>Free RAM with everything loaded</td>
+<td>~2.4 GB of 8 GB</td>
+</tr>
+<tr>
+<td>Jetson power</td>
+<td>~24 W (2 A at 12 V)</td>
+</tr>
+<tr>
+<td>Continuous test (Jetson)</td>
+<td>wake-up intro + 7 conversation turns without failures</td>
+</tr>
+<tr>
+<td>Costume recognition (18 test photos)</td>
+<td>15/18 correct (Nemotron API 1–3 s per person; Qwen3-VL 2B local ~18 s)</td>
+</tr>
+</tbody>
+</table>
+<h2>What I would do next</h2>
+<ul>
+<li>Close the loop between camera and neck: the YOLO person boxes already exist, so the next step is sending their position as <code>L x y</code> (eyes) and <code>P</code>/<code>T</code> (neck) so the skull follows you continuously.</li>
+<li>A faster fully offline costume recogniser on the Jetson (a CLIP-style model to name the costume instantly, plus the small local VLM for the description).</li>
+<li>Move the right hoverboard board to its second UART and drive both wheels again.</li>
+<li>PID speed control on the hoverboard (<code>DRIVING_MODE 1</code>) so both wheels match under load.</li>
+</ul>
+<h2>Files</h2>
+<p>All code, firmware, CAD (STEP/STL) and schematics: <strong>https://github.com/lemillion789/Halloween-Hackathon</strong> (author: <a href="https://github.com/lemillion789">github.com/lemillion789</a>)</p>
+<ul>
+<li><code>firmware/eyes/</code> — eye controller (ESP32 + 2x ST7735 + LEDs + IMU)</li>
+<li><code>firmware/neck/</code> — neck servos, hoverboard UART, sonar, e-stop, relays</li>
+<li><code>vision/voice_agent.py</code>, <code>personas.py</code>, <code>tts.py</code>, <code>memory.py</code> — the offline voice agent</li>
+<li><code>vision/costume_describer.py</code>, <code>person_costume.py</code>, <code>skull_lines.py</code>, <code>roulette.py</code>, <code>game.py</code>, <code>benchmark.py</code> — costume recognition and party game</li>
+<li><code>Hoverboard/</code> — firmware patch, flashed binaries and bench sketches</li>
+<li><code>CAD/</code> — eye mount, neck, retainer (Python/CadQuery scripts and STEP/STL files)</li>
+<li><code>schematics/</code> — wiring (WireViz), power, USB map, hoverboard pinout</li>
+</ul>
