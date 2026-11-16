@@ -16,9 +16,11 @@
 // Comandos (una linea):
 //   P <grados>   giro 45..135, detiene el barrido
 //   T <grados>   cabeceo TILT_MIN..TILT_MAX
-//   S            reanuda el barrido del giro
+//   S            activa el barrido del giro (arranca quieto en el centro)
 //   Q            responde "POS <giro> <cabeceo>"
 //   H 1 / H 0    habilita/deshabilita el hoverboard (arranca DESHABILITADO: no se envia nada)
+//   H L          habilita SOLO la rueda izquierda (V <vel>; la derecha recibe 0 y no se exige su telemetria)
+//   R <ms>       ms por grado al mover P/T (5..200, por defecto 25 = 40 grados/s)
 //   V <vel> <giro>  velocidad y giro del hoverboard (-MAX_SPEED..MAX_SPEED); expira en CMD_TIMEOUT_MS
 //                   (giro > 0 = gira hacia la izquierda: la rueda derecha va mas rapida; si es al reves, invertir STEER_SIGN)
 //   W            responde "HOVER R <V> <A> <v> <odom> <n> L <V> <A> <v> <odom> <n> OK|FALLO"
@@ -39,7 +41,8 @@ unsigned long powerPulseUntil = 0;
 
 const int PAN_MIN = 45, PAN_MAX = 135, PAN_CENTER = 90;
 const int TILT_MIN = 40, TILT_MAX = 105, TILT_CENTER = 90;   // limites fisicos del cuello (medidos por el usuario)
-const unsigned long SWEEP_MS = 20, GOTO_MS = 10;
+const unsigned long SWEEP_MS = 20;
+unsigned long gotoMs = 25;               // ms por grado al ir a P/T (25 = 40 grados/s); cambiar con `R <ms>`
 
 const int MAX_SPEED = 150;                 // limite de software (unidades EFeru, max firmware 1000)
 const unsigned long CMD_TIMEOUT_MS = 300;
@@ -56,10 +59,11 @@ struct Parser { uint8_t buf[15]; int pos = 0; };
 Servo pan, tilt;
 int panPos = PAN_CENTER, panTarget = PAN_CENTER, tiltPos = TILT_CENTER, tiltTarget = TILT_CENTER;
 int dir = 1;
-bool sweeping = true;
+bool sweeping = false;                     // arranca quieto en el centro; `S` activa el barrido
 unsigned long lastPan = 0, lastTilt = 0;
 
 bool hoverOn = false;
+bool leftOnly = false;                     // `H L`: solo la rueda izquierda (la derecha tiene PB6 danado, 15 nov)
 int cmdSpeed = 0, cmdSteer = 0;
 unsigned long lastCmd = 0, lastFrame = 0;
 
@@ -184,9 +188,11 @@ void handleSerial() {
   } else if (line == "Q") {
     Serial.print("POS "); Serial.print(panPos); Serial.print(' '); Serial.println(tiltPos);
   } else if (line.startsWith("H ")) {
-    hoverOn = line.substring(2).toInt() != 0;
+    String arg = line.substring(2); arg.trim();
+    leftOnly = (arg == "L");
+    hoverOn = leftOnly || arg.toInt() != 0;
     cmdSpeed = cmdSteer = 0;
-    Serial.print("OK H "); Serial.println(hoverOn);
+    Serial.print("OK H "); Serial.println(leftOnly ? "L (solo rueda izquierda)" : (hoverOn ? "1" : "0"));
   } else if (line.startsWith("V ")) {
     int sp = 0, st = 0;
     if (sscanf(line.c_str() + 2, "%d %d", &sp, &st) >= 1) {
@@ -213,6 +219,9 @@ void handleSerial() {
                   telemL.v, telemL.a, telemL.speed, (long)telemL.odom, (unsigned long)telemL.count, ok ? "OK" : "FALLO");
     Serial.printf("ESTADO hoverOn=%d cmd=%d/%d edad_cmd=%lu paro=%s dist=%d enviado R=%d L=%d\n", hoverOn, cmdSpeed, cmdSteer,
                   now - lastCmd, digitalRead(ESTOP_PIN) == LOW ? "PULSADO" : "libre", (int)distCm, lastSentR, lastSentL);
+  } else if (line.startsWith("R ")) {
+    gotoMs = constrain(line.substring(2).toInt(), 5, 200);
+    Serial.print("OK R "); Serial.println(gotoMs);
   } else if (line == "U") {
     Serial.print("DIST "); Serial.println((int)distCm);
   }
@@ -227,12 +236,12 @@ void stepServos(unsigned long now) {
       if (panPos <= PAN_MIN) { panPos = PAN_MIN; dir = 1; }
       pan.write(panPos);
     }
-  } else if (panPos != panTarget && now - lastPan >= GOTO_MS) {
+  } else if (panPos != panTarget && now - lastPan >= gotoMs) {
     lastPan = now;
     panPos += (panTarget > panPos) ? 1 : -1;
     pan.write(panPos);
   }
-  if (tiltPos != tiltTarget && now - lastTilt >= GOTO_MS) {
+  if (tiltPos != tiltTarget && now - lastTilt >= gotoMs) {
     lastTilt = now;
     tiltPos += (tiltTarget > tiltPos) ? 1 : -1;
     tilt.write(tiltPos);
@@ -250,8 +259,9 @@ void updateHover(unsigned long now) {
   if (sp > 0 && distCm > 0 && distCm < STOP_CM) sp = 0; // obstaculo adelante
 
   // Proteccion: las DOS placas deben responder, si no se paran las dos (evita girar de golpe con una sola rueda)
-  bool boardsOk = telemR.count && telemL.count &&
-                  (long)(now - telemR.last) <= (long)TELEM_TIMEOUT_MS && (long)(now - telemL.last) <= (long)TELEM_TIMEOUT_MS;
+  bool leftOk = telemL.count && (long)(now - telemL.last) <= (long)TELEM_TIMEOUT_MS;
+  bool rightOk = telemR.count && (long)(now - telemR.last) <= (long)TELEM_TIMEOUT_MS;
+  bool boardsOk = leftOnly ? leftOk : (leftOk && rightOk);   // modo H L: basta con la izquierda
   if (!boardsOk) sp = st = 0;
   if (!boardsOk && hoverWasOk) Serial.println("FALLO hoverboard: una placa no responde, ruedas paradas");
   if (boardsOk && !hoverWasOk) Serial.println("OK hoverboard: las dos placas responden");
@@ -259,8 +269,8 @@ void updateHover(unsigned long now) {
 
   if (now - lastFrame >= 25) {                           // 40 Hz; las dos tramas salen juntas, cada una por su UART
     lastFrame = now;
-    int lm = sp - STEER_SIGN * st;
-    int rm = sp + STEER_SIGN * st;
+    int lm = leftOnly ? sp : sp - STEER_SIGN * st;          // H L: la izquierda solo avanza/retrocede, la derecha a 0
+    int rm = leftOnly ? 0 : sp + STEER_SIGN * st;
     lastSentR = wheelCmd(rm, GAIN_RIGHT, SIGN_RIGHT);
     lastSentL = wheelCmd(lm, GAIN_LEFT, SIGN_LEFT);
     sendHover(PORT_R, ID_RIGHT, lastSentR);

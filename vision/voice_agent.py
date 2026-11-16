@@ -11,6 +11,7 @@ Uso (Windows: .venv/Scripts/python, Linux/Jetson: .venv/bin/python):
   python voice_agent.py --text "Hola, quien eres?"   # un turno escrito, sin microfono (para probar)
   --model qwen3:4b-instruct  modelo de Ollama        --whisper base   tiny/base/small (mas grande = mejor y mas lento)
   --eyes COM7        manda el mood a los ojos (`M <mood>`) mientras habla
+  --neck /dev/ttyUSB1  mueve el cuello en la secuencia de despertar (ordenes "N ..." de personas.py)
   --persona awakened  personalidad: awakened, evil_ai, guardian, demon, ghost, o un archivo .txt con la tuya
   --no-intro         sin la frase de despertar
   --reset-memory     olvida todo lo recordado (skull_memory.json); --no-memory = sin memoria a largo plazo
@@ -364,6 +365,7 @@ def main():
     ap.add_argument("--whisper", default="base", help="tiny, base, small...")
     ap.add_argument("--whisper-device", default="cpu", help="cpu o cuda")
     ap.add_argument("--eyes", help="puerto serie del ESP32 de los ojos (p. ej. COM7 o /dev/ttyUSB0)")
+    ap.add_argument("--neck", help="puerto serie del ESP32 del cuello (firmware/neck), para mover la cabeza en el despertar")
     ap.add_argument("--persona", default=personas.DEFAULT_PERSONA,
                     help=f"{', '.join(personas.PERSONAS)} o un archivo .txt con tu propio prompt")
     ap.add_argument("--text", action="append", help="turno escrito, sin microfono (se puede repetir)")
@@ -395,7 +397,16 @@ def main():
 
     eyes = Eyes(args.eyes) if args.eyes else None
     set_mood = eyes.mood if eyes else (lambda m: log("ojos", m))
-    send_eyes = eyes.send if eyes else (lambda c: log("ojos", c))
+    _eyes_send = eyes.send if eyes else (lambda c: log("ojos", c))
+    neck = Eyes(args.neck) if args.neck else None   # misma apertura segura del puerto (DTR/RTS) que los ojos
+    _neck_send = neck.send if neck else (lambda c: log("cuello", c))
+
+    def send_eyes(cmd):
+        """Las ordenes que empiezan por "N " van al ESP32 del cuello (firmware/neck: P, T, R); el resto a los ojos."""
+        if cmd.startswith("N "):
+            _neck_send(cmd[2:])
+        else:
+            _eyes_send(cmd)
     if persona.get("dormant") and not args.no_intro:
         play_cues(send_eyes, persona["dormant"])  # ojos medio cerrados y LEDs apagados mientras carga todo
 

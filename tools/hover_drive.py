@@ -7,6 +7,7 @@ Uso (SOLO con las ruedas en el aire o con el robot vigilado, la fuente limitada 
   python3 tools/hover_drive.py 100 0 3          # velocidad 100, giro 0, durante 3 s, luego frena
   python3 tools/hover_drive.py 0 90 2           # gira sobre si mismo 2 s
   python3 tools/hover_drive.py --keys           # teclado: w/s velocidad, a/d giro, espacio frena, q sale
+  python3 tools/hover_drive.py --left-only --and-back 70 0 1.5   # solo rueda izquierda: avanza 1,5 s y vuelve igual
 
 Cierra antes el monitor serie (el puerto solo admite un programa).
 Si las placas estan apagadas, enciendelas antes con `E` (relés) o a mano.
@@ -103,18 +104,24 @@ def main():
     ap.add_argument("--port", default="/dev/ttyUSB0")
     ap.add_argument("--keys", action="store_true", help="modo teclado")
     ap.add_argument("--no-enable", action="store_true", help="no mandar H 1 / H 0")
+    ap.add_argument("--left-only", action="store_true", help="solo la rueda izquierda (H L en neck.ino)")
+    ap.add_argument("--and-back", action="store_true", help="tras el tramo, pausa 1 s y repite con velocidad contraria")
     a = ap.parse_args()
     if abs(a.speed) > MAX or abs(a.steer) > MAX:
         sys.exit(f"velocidad y giro deben estar entre -{MAX} y {MAX}")
     s = open_port(a.port)
     try:
         if not a.no_enable:
-            send(s, "H 1")
+            send(s, "H L" if a.left_only else "H 1")
             print(drain(s, 0.4).strip())
         if a.keys:
             run_keys(s)
         else:
             run_timed(s, a.speed, a.steer, a.secs)
+            if a.and_back:
+                for _ in range(HZ):                      # 1 s parado (V 0 mantiene vivas las tramas)
+                    send(s, "V 0 0"); drain(s, 1.0 / HZ)
+                run_timed(s, -a.speed, -a.steer, a.secs)
     finally:
         send(s, "X")
         if not a.no_enable:
