@@ -22,3 +22,6 @@ Hoverboard/firmware_src/
 
 # carpeta de entrega de element14 (copias para subir a mano)
 docs/element14_submission/
+
+# notas internas de las sesiones (solo local)
+CLAUDE.md
